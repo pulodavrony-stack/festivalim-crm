@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Call</title>
+  <script src="/jssip.bundle.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 40px; background: #1a1a2e; color: #fff; }
+    #log { background: #16213e; padding: 20px; border-radius: 10px; max-height: 500px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.6; }
+    .ok { color: #0f0; } .err { color: #f55; } .info { color: #5bf; } .warn { color: #ff0; }
+    h1 { color: #e94560; }
+    button { padding: 15px 30px; font-size: 16px; background: #e94560; color: #fff; border: none; border-radius: 8px; cursor: pointer; margin: 5px; }
+    button:disabled { opacity: 0.5; }
+    button.green { background: #0a6; }
+    #status { font-size: 24px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Test Call v3</h1>
+  <div id="status">Loading...</div>
+  <div>
+    <button id="btnRegister" onclick="doRegister()">1. Register SIP</button>
+    <button id="btnCallAPI" onclick="doCallAPI()" disabled>2. Call via API</button>
+    <button id="btnCallSIP" onclick="doCallSIP()" disabled class="green">3. Direct SIP Call</button>
+  </div>
+  <audio id="remoteAudio" autoplay></audio>
+  <div id="log"></div>
+
+<script>
+  const SIP_SERVER = 'pbx.uiscom.ru';
+  const SIP_WSS_PORT = '443';
+  const SIP_LOGIN = '0309230';
+  const SIP_PASSWORD = 'xACYXUp3Sg';
+  const CALL_NUMBER = '79601135774';
+
+  let ua = null;
+  let currentSession = null;
+  let pendingOutbound = false;
+
+  function log(msg, cls='info') {
+    const d = document.getElementById('log');
+    const t = new Date().toLocaleTimeString();
+    d.innerHTML += `<div class="${cls}">[${t}] ${msg}</div>`;
+    d.scrollTop = d.scrollHeight;
+    console.log(`[${cls}]`, msg);
+  }
+
+  function setStatus(s) { document.getElementById('status').textContent = s; }
+
+  function setupSession(session, label) {
+    currentSession = session;
+    
+    session.on('connecting', () => log(label + ' connecting...', 'info'));
+    session.on('progress', () => { log(label + ' ringing...', 'info'); setStatus('Ringing...'); });
+    session.on('accepted', () => log(label + ' accepted', 'ok'));
+    
+    session.on('confirmed', () => {
+      log(label + ' CONFIRMED - audio active!', 'ok');
+      setStatus('IN CALL');
+      if (session.connection) {
+        const stream = new MediaStream();
+        session.connection.getReceivers().forEach(r => {
+          if (r.track) { stream.addTrack(r.track); log('Got audio track: ' + r.track.kind, 'ok'); }
+        });
+        const audio = document.getElementById('remoteAudio');
+        audio.srcObject = stream;
+        audio.play().then(() => log('Audio playing', 'ok')).catch(e => log('Audio play error: ' + e, 'err'));
+      }
+    });
+    
+    session.on('ended', (e) => {
+      log(label + ' ended: ' + (e.cause || 'normal'), 'warn');
+      setStatus('Call ended');
+      currentSession = null;
+    });
+    
+    session.on('failed', (e) => {
+      log(label + ' FAILED: ' + (e.cause || 'unknown') + ' | SIP: ' + (e.message?.status_code || '') + ' ' + (e.message?.reason_phrase || ''), 'err');
+      setStatus('Call failed: ' + (e.cause || 'unknown'));
+      currentSession = null;
+    });
+
+    session.on('icecandidate', (event) => {
+      log('ICE candidate: ' + event.candidate.candidate.substring(0, 60) + '...', 'info');
+    });
+  }
+
+  function doRegister() {
+    if (typeof JsSIP === 'undefined') { log('JsSIP not loaded!', 'err'); return; }
+    
+    log('Connecting to wss://' + SIP_SERVER + ':' + SIP_WSS_PORT + '/ws');
+    setStatus('Connecting...');
+    
+    const socket = new JsSIP.WebSocketInterface(`wss://${SIP_SERVER}:${SIP_WSS_PORT}/ws`);
+    
+    ua = new JsSIP.UA({
+      sockets: [socket],
+      uri: `sip:${SIP_LOGIN}@${SIP_SERVER}`,
+      password: SIP_PASSWORD,
+      display_name: 'CRM Test',
+      register: true,
+      session_timers: false,
+      register_expires: 300,
+    });
+
+    ua.on('connected', () => log('WebSocket connected', 'ok'));
+    ua.on('disconnected', (e) => { log('WebSocket disconnected: ' + JSON.stringify(e), 'err'); setStatus('Disconnected'); });
+    
+    ua.on('registered', () => {
+      log('SIP REGISTERED! Ready for calls.', 'ok');
+      setStatus('REGISTERED - Ready');
+      document.getElementById('btnCallAPI').disabled = false;
+      document.getElementById('btnCallSIP').disabled = false;
+    });
+    
+    ua.on('registrationFailed', (e) => {
+      log('Registration FAILED: ' + e.cause, 'err');
+      setStatus('Registration Failed: ' + e.cause);
+    });
+
+    ua.on('newRTCSession', (data) => {
+      const session = data.session;
+      
+      if (session.direction === 'incoming') {
+        const caller = session.remote_identity?.display_name || session.remote_identity?.uri?.user || 'unknown';
+        const callerUri = session.remote_identity?.uri?.toString() || '';
+        log('>>> INCOMING CALL from: ' + caller + ' (' + callerUri + ')', 'ok');
+        
+        // Auto-answer ALL incoming calls for testing
+        log('Auto-answering...', 'ok');
+        setStatus('Answering call from ' + caller);
+        
+        setupSession(session, 'Incoming');
+        
+        session.answer({
+          mediaConstraints: { audio: true, video: false },
+          pcConfig: { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] },
+        });
+      } else {
+        log('Outgoing session created', 'info');
+      }
+    });
+
+    ua.on('sipEvent', (e) => log('SIP Event: ' + JSON.stringify(e), 'info'));
+
+    ua.start();
+    document.getElementById('btnRegister').disabled = true;
+    log('UA started, waiting for registration...', 'info');
+  }
+
+  async function doCallAPI() {
+    log('=== Call via API ===');
+    log('Initiating Call API to: ' + CALL_NUMBER);
+    setStatus('Calling ' + CALL_NUMBER + ' via API...');
+    pendingOutbound = true;
+    
+    try {
+      const resp = await fetch('/api/calls/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientPhone: CALL_NUMBER }),
+      });
+      const data = await resp.json();
+      log('Call API response: ' + JSON.stringify(data), data.success ? 'ok' : 'err');
+      
+      if (!data.success) {
+        pendingOutbound = false;
+        setStatus('Call API Error: ' + (data.error || 'Unknown'));
+      } else {
+        setStatus('Waiting for UIS callback... Session: ' + data.callId);
+        log('Waiting for incoming SIP call from UIS (up to 30s)...', 'warn');
+      }
+    } catch(e) {
+      log('Call API fetch error: ' + e.message, 'err');
+      pendingOutbound = false;
+      setStatus('Error: ' + e.message);
+    }
+  }
+
+  function doCallSIP() {
+    if (!ua) { log('Not registered!', 'err'); return; }
+    
+    log('=== Direct SIP Call ===');
+    const target = `sip:${CALL_NUMBER}@${SIP_SERVER}`;
+    log('Calling SIP URI: ' + target, 'info');
+    setStatus('Direct SIP call to ' + CALL_NUMBER + '...');
+
+    const options = {
+      mediaConstraints: { audio: true, video: false },
+      pcConfig: { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] },
+      rtcOfferConstraints: { offerToReceiveAudio: true, offerToReceiveVideo: false },
+    };
+
+    try {
+      const session = ua.call(target, options);
+      setupSession(session, 'Direct SIP');
+      log('SIP INVITE sent', 'info');
+    } catch(e) {
+      log('SIP call error: ' + e.message, 'err');
+      setStatus('SIP Error: ' + e.message);
+    }
+  }
+
+  // Init
+  setTimeout(() => {
+    if (typeof JsSIP !== 'undefined') {
+      setStatus('Ready. Click "1. Register SIP"');
+      log('JsSIP loaded (v' + (JsSIP.version || '?') + ')', 'ok');
+    } else {
+      setStatus('ERROR: JsSIP not loaded');
+      log('JsSIP failed to load!', 'err');
+    }
+  }, 1000);
+</script>
+</body>
+</html>
