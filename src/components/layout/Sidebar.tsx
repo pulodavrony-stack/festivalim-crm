@@ -14,6 +14,7 @@ const mainNav: NavItem[] = [
   { href: '/', label: 'Главная', icon: '🏠' },
   { href: '/pipeline', label: 'Воронка', icon: '📊' },
   { href: '/clients', label: 'Клиенты', icon: '👥' },
+  { href: '/companies', label: 'B2B Компании', icon: '🏢' },
   { href: '/tasks', label: 'Задачи', icon: '📋' },
   { href: '/messages', label: 'Сообщения', icon: '💬' },
   { href: '/events', label: 'События', icon: '📅' },
@@ -25,6 +26,7 @@ const settingsNav: NavItem[] = [
   { href: '/settings/routing', label: 'Распределение', icon: '🎯' },
   { href: '/settings/duplicates', label: 'Дубликаты', icon: '🔄' },
   { href: '/settings/transfer', label: 'Перевалка', icon: '👥' },
+  { href: '/settings/managers-access', label: 'Права доступа', icon: '🔐' },
 ];
 
 interface SidebarProps {

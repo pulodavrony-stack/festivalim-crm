@@ -2,6 +2,8 @@
 // ФЕСТИВАЛИМ CRM: TypeScript Types
 // =============================================
 
+export * from './b2b';
+
 // =============================================
 // ENUMS
 // =============================================
@@ -105,6 +107,8 @@ export interface Manager {
   is_active: boolean;
   weekly_calls_target: number;
   weekly_sales_target: number;
+  has_b2c_access: boolean;
+  has_b2b_access: boolean;
   created_at: string;
   updated_at: string;
 }
