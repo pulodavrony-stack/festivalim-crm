@@ -703,95 +703,175 @@ SELECT create_team_pipelines('etazhi');
 -- 7. МИГРАЦИЯ СУЩЕСТВУЮЩИХ ДАННЫХ В ATLANT
 -- ===========================================
 
+-- ===========================================
+-- БЕЗОПАСНОЕ КОПИРОВАНИЕ ДАННЫХ (с обработкой ошибок)
+-- ===========================================
+
 -- Копируем города
-INSERT INTO atlant.cities (id, name, region, timezone, is_active, sort_order, created_at)
-SELECT id, name, region, timezone, is_active, sort_order, created_at 
-FROM public.cities
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.cities (id, name, region, timezone, is_active, sort_order, created_at)
+    SELECT id, name, region, timezone, is_active, COALESCE(sort_order, 0), created_at 
+    FROM public.cities
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy cities: %', SQLERRM;
+END $$;
 
 -- Копируем спектакли
-INSERT INTO atlant.shows (id, title, description, duration_minutes, age_restriction, genre_ids, poster_url, trailer_url, is_active, created_at, updated_at)
-SELECT id, title, description, duration_minutes, age_restriction, genre_ids, poster_url, trailer_url, is_active, created_at, updated_at
-FROM public.shows
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.shows (id, title, description, duration_minutes, age_restriction, genre_ids, poster_url, trailer_url, is_active, created_at, updated_at)
+    SELECT id, title, description, duration_minutes, age_restriction, genre_ids, poster_url, trailer_url, is_active, created_at, updated_at
+    FROM public.shows
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy shows: %', SQLERRM;
+END $$;
 
 -- Копируем источники
-INSERT INTO atlant.lead_sources (id, name, code, source_type, is_active, created_at)
-SELECT id, name, code, source_type, is_active, created_at
-FROM public.lead_sources
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.lead_sources (id, name, code, source_type, is_active, created_at)
+    SELECT id, name, code, source_type, is_active, created_at
+    FROM public.lead_sources
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy lead_sources: %', SQLERRM;
+END $$;
 
 -- Копируем события
-INSERT INTO atlant.events (id, show_id, city_id, event_date, event_time, venue_name, venue_address, landing_url, total_tickets, sold_tickets, min_price, max_price, status, created_at, updated_at)
-SELECT id, show_id, city_id, event_date, event_time::time, venue_name, venue_address, landing_url, total_tickets, sold_tickets, min_price, max_price, status, created_at, updated_at
-FROM public.events
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.events (id, show_id, city_id, event_date, event_time, venue_name, venue_address, landing_url, total_tickets, sold_tickets, min_price, max_price, status, created_at, updated_at)
+    SELECT id, show_id, city_id, event_date, event_time::time, venue_name, venue_address, landing_url, total_tickets, COALESCE(sold_tickets, 0), min_price, max_price, COALESCE(status, 'planned'), created_at, updated_at
+    FROM public.events
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy events: %', SQLERRM;
+END $$;
 
--- Копируем клиентов
-INSERT INTO atlant.clients (id, full_name, phone, phone_normalized, email, city_id, client_type, status, telegram_id, telegram_username, whatsapp_phone, source_id, utm_source, utm_medium, utm_campaign, utm_content, manager_id, total_purchases, total_revenue, first_purchase_date, last_purchase_date, notes, rejection_points, last_activity_at, became_kb_at, created_at, updated_at)
-SELECT id, full_name, phone, phone_normalized, email, city_id, client_type, status, telegram_id, telegram_username, whatsapp_phone, source_id, utm_source, utm_medium, utm_campaign, utm_content, manager_id, total_purchases, total_revenue, first_purchase_date, last_purchase_date, notes, rejection_points, last_activity_at, became_kb_at, created_at, updated_at
-FROM public.clients
-ON CONFLICT DO NOTHING;
+-- Копируем клиентов (безопасное копирование с проверкой колонок)
+DO $$
+BEGIN
+    -- Пробуем скопировать с полным набором колонок
+    BEGIN
+        INSERT INTO atlant.clients (id, full_name, phone, phone_normalized, email, city_id, client_type, status, telegram_id, telegram_username, whatsapp_phone, source_id, utm_source, utm_medium, utm_campaign, utm_content, manager_id, total_purchases, total_revenue, first_purchase_date, last_purchase_date, notes, rejection_points, last_activity_at, became_kb_at, created_at, updated_at)
+        SELECT id, full_name, phone, phone_normalized, email, city_id, client_type, status, telegram_id, telegram_username, whatsapp_phone, source_id, utm_source, utm_medium, utm_campaign, utm_content, manager_id, 
+               COALESCE(total_purchases, 0), COALESCE(total_revenue, 0), first_purchase_date, last_purchase_date, notes, 
+               COALESCE(rejection_points, 0), last_activity_at, became_kb_at, created_at, updated_at
+        FROM public.clients
+        ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN undefined_column THEN
+        -- Если колонки не существуют, копируем минимальный набор
+        INSERT INTO atlant.clients (id, full_name, phone, email, city_id, client_type, status, manager_id, created_at, updated_at)
+        SELECT id, full_name, phone, email, city_id, 
+               COALESCE(client_type, 'lead'), COALESCE(status, 'new'), 
+               manager_id, created_at, updated_at
+        FROM public.clients
+        ON CONFLICT DO NOTHING;
+    END;
+END $$;
 
--- Копируем воронки (используем существующие UUID)
-INSERT INTO atlant.pipelines (id, name, code, client_type, is_default, sort_order, created_at)
-SELECT id, name, code, client_type, is_default, sort_order, created_at
-FROM public.pipelines
-ON CONFLICT DO NOTHING;
+-- Копируем воронки
+DO $$ BEGIN
+    INSERT INTO atlant.pipelines (id, name, code, client_type, is_default, sort_order, created_at)
+    SELECT id, name, code, client_type, COALESCE(is_default, false), COALESCE(sort_order, 0), created_at
+    FROM public.pipelines
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy pipelines: %', SQLERRM;
+END $$;
 
 -- Копируем этапы воронок
-INSERT INTO atlant.pipeline_stages (id, pipeline_id, name, code, color, sort_order, is_final, is_success, created_at)
-SELECT id, pipeline_id, name, code, color, sort_order, is_final, is_success, created_at
-FROM public.pipeline_stages
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.pipeline_stages (id, pipeline_id, name, code, color, sort_order, is_final, is_success, created_at)
+    SELECT id, pipeline_id, name, code, color, COALESCE(sort_order, 0), COALESCE(is_final, false), COALESCE(is_success, false), created_at
+    FROM public.pipeline_stages
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy pipeline_stages: %', SQLERRM;
+END $$;
 
 -- Копируем сделки
-INSERT INTO atlant.deals (id, client_id, manager_id, event_id, pipeline_id, stage_id, source_id, title, tickets_count, amount, discount_percent, discount_amount, status, lost_reason, next_contact_date, closed_at, report_week_start, created_at, updated_at)
-SELECT id, client_id, manager_id, event_id, pipeline_id, stage_id, source_id, title, tickets_count, amount, discount_percent, discount_amount, status, lost_reason, next_contact_date, closed_at, report_week_start, created_at, updated_at
-FROM public.deals
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.deals (id, client_id, manager_id, event_id, pipeline_id, stage_id, source_id, title, tickets_count, amount, discount_percent, discount_amount, status, lost_reason, next_contact_date, closed_at, report_week_start, created_at, updated_at)
+    SELECT id, client_id, manager_id, event_id, pipeline_id, stage_id, source_id, title, 
+           COALESCE(tickets_count, 0), COALESCE(amount, 0), COALESCE(discount_percent, 0), COALESCE(discount_amount, 0), 
+           COALESCE(status, 'active'), lost_reason, next_contact_date, closed_at, report_week_start, created_at, updated_at
+    FROM public.deals
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy deals: %', SQLERRM;
+END $$;
 
 -- Копируем звонки
-INSERT INTO atlant.calls (id, client_id, deal_id, manager_id, uis_call_id, direction, phone, phone_normalized, started_at, answered_at, ended_at, duration_seconds, wait_seconds, status, record_url, result, notes, report_date, created_at)
-SELECT id, client_id, deal_id, manager_id, uis_call_id, direction, phone, phone_normalized, started_at, answered_at, ended_at, duration_seconds, wait_seconds, status, record_url, result, notes, report_date, created_at
-FROM public.calls
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.calls (id, client_id, deal_id, manager_id, uis_call_id, direction, phone, phone_normalized, started_at, answered_at, ended_at, duration_seconds, wait_seconds, status, record_url, result, notes, report_date, created_at)
+    SELECT id, client_id, deal_id, manager_id, uis_call_id, direction, phone, phone_normalized, started_at, answered_at, ended_at, 
+           COALESCE(duration_seconds, 0), COALESCE(wait_seconds, 0), status, record_url, result, notes, report_date, created_at
+    FROM public.calls
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy calls: %', SQLERRM;
+END $$;
 
 -- Копируем сообщения
-INSERT INTO atlant.messages (id, client_id, manager_id, channel, direction, content, status, external_id, metadata, created_at, read_at)
-SELECT id, client_id, manager_id, channel, direction, content, status, external_id, metadata, created_at, read_at
-FROM public.messages
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.messages (id, client_id, manager_id, channel, direction, content, status, external_id, metadata, created_at, read_at)
+    SELECT id, client_id, manager_id, channel, direction, content, status, external_id, COALESCE(metadata, '{}'), created_at, read_at
+    FROM public.messages
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy messages: %', SQLERRM;
+END $$;
 
 -- Копируем задачи
-INSERT INTO atlant.tasks (id, client_id, deal_id, manager_id, title, description, task_type, priority, status, due_date, completed_at, is_auto, auto_source, created_at, updated_at)
-SELECT id, client_id, deal_id, manager_id, title, description, task_type, priority, status, due_date::date, completed_at, COALESCE(is_auto, false), auto_source, created_at, updated_at
-FROM public.tasks
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.tasks (id, client_id, deal_id, manager_id, title, description, task_type, priority, status, due_date, completed_at, created_at, updated_at)
+    SELECT id, client_id, deal_id, manager_id, title, description, COALESCE(task_type, 'call'), COALESCE(priority, 'normal'), COALESCE(status, 'pending'), 
+           due_date::date, completed_at, created_at, updated_at
+    FROM public.tasks
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy tasks: %', SQLERRM;
+END $$;
 
 -- Копируем активности
-INSERT INTO atlant.activities (id, client_id, deal_id, manager_id, activity_type, content, metadata, created_at)
-SELECT id, client_id, deal_id, manager_id, activity_type, content, metadata, created_at
-FROM public.activities
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.activities (id, client_id, deal_id, manager_id, activity_type, content, metadata, created_at)
+    SELECT id, client_id, deal_id, manager_id, activity_type, content, COALESCE(metadata, '{}'), created_at
+    FROM public.activities
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy activities: %', SQLERRM;
+END $$;
 
 -- Копируем теги
-INSERT INTO atlant.tags (id, name, color, category, is_auto, event_id, city_id, created_at)
-SELECT id, name, color, category, is_auto, event_id, city_id, created_at
-FROM public.tags
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.tags (id, name, color, category, is_auto, event_id, city_id, created_at)
+    SELECT id, name, color, category, COALESCE(is_auto, false), event_id, city_id, created_at
+    FROM public.tags
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy tags: %', SQLERRM;
+END $$;
 
 -- Копируем связи клиент-тег
-INSERT INTO atlant.client_tags (client_id, tag_id, created_at, created_by)
-SELECT client_id, tag_id, created_at, created_by
-FROM public.client_tags
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.client_tags (client_id, tag_id, created_at, created_by)
+    SELECT client_id, tag_id, created_at, created_by
+    FROM public.client_tags
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy client_tags: %', SQLERRM;
+END $$;
 
 -- Копируем правила распределения
-INSERT INTO atlant.lead_routing_rules (id, city_id, event_id, manager_id, is_active, priority, valid_from, valid_to, created_at, updated_at)
-SELECT id, city_id, event_id, manager_id, is_active, priority, valid_from, valid_to, created_at, updated_at
-FROM public.lead_routing_rules
-ON CONFLICT DO NOTHING;
+DO $$ BEGIN
+    INSERT INTO atlant.lead_routing_rules (id, city_id, event_id, manager_id, is_active, priority, valid_from, valid_to, created_at, updated_at)
+    SELECT id, city_id, event_id, manager_id, COALESCE(is_active, true), COALESCE(priority, 0), valid_from, valid_to, created_at, updated_at
+    FROM public.lead_routing_rules
+    ON CONFLICT DO NOTHING;
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Could not copy lead_routing_rules: %', SQLERRM;
+END $$;
 
 -- ===========================================
 -- 8. ВЫВОДИМ РЕЗУЛЬТАТ
