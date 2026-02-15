@@ -29,6 +29,24 @@ CREATE TABLE IF NOT EXISTS public.teams (
     bank_account TEXT,
     correspondent_account TEXT,
     
+    -- Каналы продаж и интеграции
+    sales_channels JSONB DEFAULT '[]',        -- ["tilda", "site", "telegram", "instagram", "vk", "avito"]
+    tilda_project_id TEXT,                    -- ID проекта в Tilda
+    tilda_api_key TEXT,                       -- API ключ Tilda
+    telegram_bot_token TEXT,                  -- Telegram бот для уведомлений
+    telegram_channel_id TEXT,                 -- ID канала для постов
+    whatsapp_business_id TEXT,                -- WhatsApp Business API
+    whatsapp_api_token TEXT,
+    instagram_account TEXT,                   -- @username
+    vk_group_id TEXT,                         -- ID группы ВК
+    
+    -- Статистика (обновляется триггерами/cron)
+    total_clients INTEGER DEFAULT 0,
+    total_deals INTEGER DEFAULT 0,
+    total_revenue DECIMAL(14,2) DEFAULT 0,
+    total_tickets_sold INTEGER DEFAULT 0,
+    stats_updated_at TIMESTAMPTZ,
+    
     -- Настройки
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),

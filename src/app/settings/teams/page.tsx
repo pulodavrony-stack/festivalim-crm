@@ -35,7 +35,26 @@ export default function TeamsSettingsPage() {
     bank_bik: '',
     bank_account: '',
     correspondent_account: '',
+    // Каналы и интеграции
+    sales_channels: [] as string[],
+    tilda_project_id: '',
+    tilda_api_key: '',
+    telegram_bot_token: '',
+    telegram_channel_id: '',
+    whatsapp_business_id: '',
+    instagram_account: '',
+    vk_group_id: '',
   });
+  
+  const SALES_CHANNELS = [
+    { id: 'tilda', label: 'Tilda', icon: '🌐' },
+    { id: 'site', label: 'Сайт', icon: '💻' },
+    { id: 'telegram', label: 'Telegram', icon: '✈️' },
+    { id: 'instagram', label: 'Instagram', icon: '📸' },
+    { id: 'vk', label: 'ВКонтакте', icon: '💬' },
+    { id: 'avito', label: 'Авито', icon: '📦' },
+    { id: 'yandex', label: 'Яндекс', icon: '🔍' },
+  ];
   
   const loadTeams = useCallback(async () => {
     try {
@@ -77,6 +96,14 @@ export default function TeamsSettingsPage() {
       inn: team.inn || '',
       kpp: team.kpp || '',
       ogrn: team.ogrn || '',
+      sales_channels: (team.sales_channels as string[]) || [],
+      tilda_project_id: team.tilda_project_id || '',
+      tilda_api_key: team.tilda_api_key || '',
+      telegram_bot_token: team.telegram_bot_token || '',
+      telegram_channel_id: team.telegram_channel_id || '',
+      whatsapp_business_id: team.whatsapp_business_id || '',
+      instagram_account: team.instagram_account || '',
+      vk_group_id: team.vk_group_id || '',
       legal_address: team.legal_address || '',
       bank_name: team.bank_name || '',
       bank_bik: team.bank_bik || '',
@@ -92,6 +119,15 @@ export default function TeamsSettingsPage() {
   function handleTeamSelect(team: Team) {
     setSelectedTeam(team);
     updateForm(team);
+  }
+  
+  function toggleChannel(channelId: string) {
+    setForm(prev => ({
+      ...prev,
+      sales_channels: prev.sales_channels.includes(channelId)
+        ? prev.sales_channels.filter(c => c !== channelId)
+        : [...prev.sales_channels, channelId]
+    }));
   }
   
   async function handleSave() {
@@ -115,6 +151,15 @@ export default function TeamsSettingsPage() {
           bank_bik: form.bank_bik || null,
           bank_account: form.bank_account || null,
           correspondent_account: form.correspondent_account || null,
+          // Каналы и интеграции
+          sales_channels: form.sales_channels,
+          tilda_project_id: form.tilda_project_id || null,
+          tilda_api_key: form.tilda_api_key || null,
+          telegram_bot_token: form.telegram_bot_token || null,
+          telegram_channel_id: form.telegram_channel_id || null,
+          whatsapp_business_id: form.whatsapp_business_id || null,
+          instagram_account: form.instagram_account || null,
+          vk_group_id: form.vk_group_id || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedTeam.id);
@@ -400,6 +445,140 @@ export default function TeamsSettingsPage() {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Sales Channels */}
+                    <div className="bg-white rounded-xl shadow-sm border p-6">
+                      <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <span className="text-xl">📢</span>
+                        Каналы продаж
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-4">Выберите каналы, через которые команда продаёт билеты</p>
+                      <div className="flex flex-wrap gap-2">
+                        {SALES_CHANNELS.map((channel) => (
+                          <button
+                            key={channel.id}
+                            type="button"
+                            onClick={() => toggleChannel(channel.id)}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                              form.sales_channels.includes(channel.id)
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            <span>{channel.icon}</span>
+                            {channel.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Integrations */}
+                    <div className="bg-white rounded-xl shadow-sm border p-6">
+                      <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <span className="text-xl">🔗</span>
+                        Интеграции
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Tilda Project ID</label>
+                          <input
+                            type="text"
+                            value={form.tilda_project_id}
+                            onChange={(e) => setForm({ ...form, tilda_project_id: e.target.value })}
+                            placeholder="123456"
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Tilda API Key</label>
+                          <input
+                            type="password"
+                            value={form.tilda_api_key}
+                            onChange={(e) => setForm({ ...form, tilda_api_key: e.target.value })}
+                            placeholder="api-key..."
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Telegram Bot Token</label>
+                          <input
+                            type="password"
+                            value={form.telegram_bot_token}
+                            onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })}
+                            placeholder="bot-token..."
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Telegram Channel ID</label>
+                          <input
+                            type="text"
+                            value={form.telegram_channel_id}
+                            onChange={(e) => setForm({ ...form, telegram_channel_id: e.target.value })}
+                            placeholder="@channel или -100..."
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Business ID</label>
+                          <input
+                            type="text"
+                            value={form.whatsapp_business_id}
+                            onChange={(e) => setForm({ ...form, whatsapp_business_id: e.target.value })}
+                            placeholder="business-id..."
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
+                          <input
+                            type="text"
+                            value={form.instagram_account}
+                            onChange={(e) => setForm({ ...form, instagram_account: e.target.value })}
+                            placeholder="@username"
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">ВКонтакте Group ID</label>
+                          <input
+                            type="text"
+                            value={form.vk_group_id}
+                            onChange={(e) => setForm({ ...form, vk_group_id: e.target.value })}
+                            placeholder="club123456"
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Stats Display */}
+                    {selectedTeam && (selectedTeam.total_clients || selectedTeam.total_deals || selectedTeam.total_revenue) && (
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 p-6">
+                        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="text-xl">📊</span>
+                          Статистика команды
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-indigo-600">{selectedTeam.total_clients || 0}</div>
+                            <div className="text-sm text-gray-500">Клиентов</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-purple-600">{selectedTeam.total_deals || 0}</div>
+                            <div className="text-sm text-gray-500">Сделок</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">{(selectedTeam.total_revenue || 0).toLocaleString()} ₽</div>
+                            <div className="text-sm text-gray-500">Выручка</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-orange-600">{selectedTeam.total_tickets_sold || 0}</div>
+                            <div className="text-sm text-gray-500">Билетов</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Save Button */}
                     <div className="flex justify-end">
