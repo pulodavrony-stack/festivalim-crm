@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import SalesTargetWidget from '@/components/dashboard/SalesTargetWidget';
 
 interface Stats {
@@ -79,6 +79,8 @@ interface Filters {
 }
 
 export default function AnalyticsPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [stats, setStats] = useState<Stats>({
     totalClients: 0,
     leads: 0,
@@ -113,12 +115,16 @@ export default function AnalyticsPage() {
   const [sources, setSources] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    loadReferenceData();
-  }, []);
+    if (!teamLoading) {
+      loadReferenceData();
+    }
+  }, [teamLoading, teamSchema]);
 
   useEffect(() => {
-    loadStats();
-  }, [period, activeTab, filters]);
+    if (!teamLoading) {
+      loadStats();
+    }
+  }, [period, activeTab, filters, teamLoading, teamSchema]);
 
   async function loadReferenceData() {
     const [citiesRes, managersRes, eventsRes, sourcesRes] = await Promise.all([

@@ -3,6 +3,7 @@
 // =============================================
 
 export * from './b2b';
+export * from './team';
 
 // =============================================
 // ENUMS
@@ -109,6 +110,9 @@ export interface Manager {
   weekly_sales_target: number;
   has_b2c_access: boolean;
   has_b2b_access: boolean;
+  // Multi-tenant
+  team_id?: string;
+  can_switch_teams: boolean;
   created_at: string;
   updated_at: string;
 }

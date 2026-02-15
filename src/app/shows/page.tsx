@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 
 interface Show {
   id: string;
@@ -15,6 +15,8 @@ interface Show {
 }
 
 export default function ShowsPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -27,8 +29,10 @@ export default function ShowsPage() {
   });
 
   useEffect(() => {
-    loadShows();
-  }, []);
+    if (!teamLoading) {
+      loadShows();
+    }
+  }, [teamLoading, teamSchema]);
 
   async function loadShows() {
     const { data } = await supabase

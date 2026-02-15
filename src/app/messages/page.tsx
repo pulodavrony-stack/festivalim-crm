@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 
 interface Conversation {
   id: string;
@@ -45,6 +45,8 @@ const clientTypeBadge: Record<string, { label: string; color: string }> = {
 };
 
 export default function MessagesPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -127,8 +129,10 @@ export default function MessagesPage() {
   }, []);
 
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+    if (!teamLoading) {
+      loadConversations();
+    }
+  }, [loadConversations, teamLoading]);
 
   useEffect(() => {
     if (selectedConversation) {

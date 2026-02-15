@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 
 interface Task {
   id: string;
@@ -50,6 +50,8 @@ const priorityColors: Record<string, string> = {
 };
 
 export default function TasksPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<TaskStats>({ today: 0, overdue: 0, upcoming: 0, completed_today: 0 });
   const [loading, setLoading] = useState(true);
@@ -110,9 +112,11 @@ export default function TasksPage() {
   }, []);
 
   useEffect(() => {
-    loadTasks();
-    loadStats();
-  }, [loadTasks, loadStats]);
+    if (!teamLoading) {
+      loadTasks();
+      loadStats();
+    }
+  }, [loadTasks, loadStats, teamLoading]);
 
   async function completeTask(taskId: string) {
     await supabase

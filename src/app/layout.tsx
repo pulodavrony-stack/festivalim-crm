@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import { TeamProvider } from '@/components/providers/TeamProvider';
 import PhoneWidgetWrapper from '@/components/phone/PhoneWidgetWrapper';
 import { ToastProvider } from '@/components/ui/Toast';
 import EmbeddedMessenger from '@/components/messaging/EmbeddedMessenger';
@@ -37,13 +38,15 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <ToastProvider>
-            <div className="min-h-screen bg-gray-50">
-              {children}
-            </div>
-            <PhoneWidgetWrapper />
-            <EmbeddedMessenger />
-          </ToastProvider>
+          <TeamProvider>
+            <ToastProvider>
+              <div className="min-h-screen bg-gray-50">
+                {children}
+              </div>
+              <PhoneWidgetWrapper />
+              <EmbeddedMessenger />
+            </ToastProvider>
+          </TeamProvider>
         </AuthProvider>
       </body>
     </html>

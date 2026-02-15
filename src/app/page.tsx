@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import SalesTargetWidget from '@/components/dashboard/SalesTargetWidget';
 import Sidebar from '@/components/layout/Sidebar';
@@ -21,6 +21,8 @@ interface Stats {
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<Stats>({
     leads: 0,
@@ -83,11 +85,13 @@ export default function Dashboard() {
       console.error('Error loading stats:', error);
     }
     setLoading(false);
-  }, []);
+  }, [supabase, teamSchema]);
 
   useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+    if (!teamLoading) {
+      loadStats();
+    }
+  }, [loadStats, teamLoading]);
 
   return (
     <div className="min-h-screen flex bg-gray-50">

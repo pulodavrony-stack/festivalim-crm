@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import Sidebar from '@/components/layout/Sidebar';
 import {
   CompanyTypeLabels,
@@ -13,6 +13,8 @@ import {
 import type { CompanyFull, ContractFull, CompanyContact } from '@/types/b2b';
 
 export default function CompanyDetailPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const params = useParams();
   const router = useRouter();
   const companyId = params.id as string;
@@ -35,10 +37,12 @@ export default function CompanyDetailPage() {
   const [savingContract, setSavingContract] = useState(false);
 
   useEffect(() => {
-    loadCompany();
-    loadContracts();
-    loadEvents();
-  }, [companyId]);
+    if (!teamLoading) {
+      loadCompany();
+      loadContracts();
+      loadEvents();
+    }
+  }, [companyId, teamLoading, teamSchema]);
 
   async function loadCompany() {
     try {
@@ -145,28 +149,23 @@ export default function CompanyDetailPage() {
     }
   }
 
-  const shellStart = (
-    <>
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="lg:hidden bg-white border-b h-16 flex items-center px-4">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <span className="ml-4 font-bold text-gray-900 text-lg">Компания</span>
-        </header>
-        <main className="flex-1 overflow-auto">
-    </>
-  );
-
-  if (loading) {
+  if (loading || teamLoading) {
     return (
       <div className="min-h-screen flex bg-gray-50">
-        {shellStart}
-        <div className="flex items-center justify-center py-20 w-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="lg:hidden bg-white border-b h-16 flex items-center px-4">
+            <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <span className="ml-4 font-bold text-gray-900 text-lg">Компания</span>
+          </header>
+          <main className="flex-1 overflow-auto">
+            <div className="flex items-center justify-center py-20 w-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+            </div>
+          </main>
         </div>
-        </main></div>
       </div>
     );
   }
@@ -174,20 +173,35 @@ export default function CompanyDetailPage() {
   if (!company) {
     return (
       <div className="min-h-screen flex bg-gray-50">
-        {shellStart}
-        <div className="p-6 text-center py-20 w-full">
-          <p className="text-gray-500">Компания не найдена</p>
-          <Link href="/companies" className="text-blue-600 hover:underline mt-2 inline-block">Назад к списку</Link>
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="lg:hidden bg-white border-b h-16 flex items-center px-4">
+            <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <span className="ml-4 font-bold text-gray-900 text-lg">Компания</span>
+          </header>
+          <main className="flex-1 overflow-auto p-6 text-center py-20">
+            <p className="text-gray-500">Компания не найдена</p>
+            <Link href="/companies" className="text-blue-600 hover:underline mt-2 inline-block">Назад к списку</Link>
+          </main>
         </div>
-        </main></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {shellStart}
-      <div className="p-6 max-w-7xl mx-auto w-full">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="lg:hidden bg-white border-b h-16 flex items-center px-4">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          <span className="ml-4 font-bold text-gray-900 text-lg">{company.name}</span>
+        </header>
+        <main className="flex-1 overflow-auto p-6">
+          <div className="max-w-7xl mx-auto w-full">
       {/* Back button & Header */}
       <div className="mb-6">
         <Link href="/companies" className="text-sm text-gray-500 hover:text-gray-700 mb-2 inline-block">&larr; Все компании</Link>
@@ -408,8 +422,9 @@ export default function CompanyDetailPage() {
           <p className="text-gray-400 py-4 text-center">Договоров пока нет</p>
         )}
       </div>
+          </div>
+        </main>
       </div>
-      </main></div>
     </div>
   );
 }

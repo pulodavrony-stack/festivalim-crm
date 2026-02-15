@@ -13,7 +13,7 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { PipelineColumn } from '@/components/pipeline/PipelineColumn';
 import { DealCard } from '@/components/pipeline/DealCard';
 import ClientQuickView from '@/components/clients/ClientQuickView';
@@ -78,6 +78,8 @@ interface Filters {
 }
 
 export default function PipelinePage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [activePipeline, setActivePipeline] = useState<string>('');
   const [stages, setStages] = useState<Stage[]>([]);
@@ -115,12 +117,14 @@ export default function PipelinePage() {
   );
 
   useEffect(() => {
-    loadPipelines();
-    loadFilterData();
-  }, []);
+    if (!teamLoading) {
+      loadPipelines();
+      loadFilterData();
+    }
+  }, [teamLoading, teamSchema]);
 
   useEffect(() => {
-    if (activePipeline) {
+    if (activePipeline && !teamLoading) {
       loadStagesAndDeals();
     }
   }, [activePipeline]);

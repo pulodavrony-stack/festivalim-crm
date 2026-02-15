@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import Sidebar from '@/components/layout/Sidebar';
 import { CompanyTypeLabels, CompanyStatusLabels } from '@/types/b2b';
 import type { CompanyType, CompanyStatus } from '@/types/b2b';
@@ -23,6 +23,8 @@ interface CompanyRow {
 }
 
 export default function CompaniesPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -55,8 +57,10 @@ export default function CompaniesPage() {
   }, [search]);
 
   useEffect(() => {
-    loadCompanies();
-  }, [loadCompanies]);
+    if (!teamLoading) {
+      loadCompanies();
+    }
+  }, [loadCompanies, teamLoading]);
 
   const statusColor = (s: CompanyStatus) => {
     if (s === 'active') return 'bg-green-100 text-green-700';

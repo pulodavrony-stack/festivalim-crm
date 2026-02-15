@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 
 interface Client {
   id: string;
@@ -76,6 +76,8 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 export default function ClientsPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -104,12 +106,16 @@ export default function ClientsPage() {
   });
 
   useEffect(() => {
-    loadReferenceData();
-  }, []);
+    if (!teamLoading) {
+      loadReferenceData();
+    }
+  }, [teamLoading, teamSchema]);
 
   useEffect(() => {
-    loadClients();
-  }, [filters]);
+    if (!teamLoading) {
+      loadClients();
+    }
+  }, [filters, teamLoading, teamSchema]);
 
   async function loadReferenceData() {
     const [citiesRes, managersRes, eventsRes, tagsRes, allClientsRes] = await Promise.all([

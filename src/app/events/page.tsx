@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 
 interface Event {
   id: string;
@@ -35,13 +35,17 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 export default function EventsPage() {
+  const supabase = useSchemaClient();
+  const { teamSchema, isLoading: teamLoading } = useTeam();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
 
   useEffect(() => {
-    loadEvents();
-  }, [filter]);
+    if (!teamLoading) {
+      loadEvents();
+    }
+  }, [filter, teamLoading, teamSchema]);
 
   async function loadEvents() {
     let query = supabase
