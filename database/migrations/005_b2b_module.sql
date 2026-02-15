@@ -176,16 +176,16 @@ BEGIN
     SELECT id INTO v_pipeline_id FROM pipelines WHERE code = 'b2b';
     
     IF v_pipeline_id IS NOT NULL THEN
-        INSERT INTO pipeline_stages (pipeline_id, name, code, color, sort_order, is_final, is_success)
+        INSERT INTO pipeline_stages (pipeline_id, name, code, color, sort_order)
         VALUES 
-            (v_pipeline_id, 'Первый контакт', 'first_contact', '#3B82F6', 1, false, false),
-            (v_pipeline_id, 'Переговоры', 'negotiation', '#F59E0B', 2, false, false),
-            (v_pipeline_id, 'КП отправлено', 'proposal_sent', '#8B5CF6', 3, false, false),
-            (v_pipeline_id, 'Договор на подпись', 'contract_pending', '#EC4899', 4, false, false),
-            (v_pipeline_id, 'Договор подписан', 'contract_signed', '#10B981', 5, false, false),
-            (v_pipeline_id, 'Оплачено', 'paid', '#059669', 6, true, true),
-            (v_pipeline_id, 'Услуга оказана', 'completed', '#047857', 7, true, true),
-            (v_pipeline_id, 'Отказ', 'lost', '#EF4444', 8, true, false)
+            (v_pipeline_id, 'Первый контакт', 'first_contact', '#3B82F6', 1),
+            (v_pipeline_id, 'Переговоры', 'negotiation', '#F59E0B', 2),
+            (v_pipeline_id, 'КП отправлено', 'proposal_sent', '#8B5CF6', 3),
+            (v_pipeline_id, 'Договор на подпись', 'contract_pending', '#EC4899', 4),
+            (v_pipeline_id, 'Договор подписан', 'contract_signed', '#10B981', 5),
+            (v_pipeline_id, 'Оплачено', 'paid', '#059669', 6),
+            (v_pipeline_id, 'Услуга оказана', 'completed', '#047857', 7),
+            (v_pipeline_id, 'Отказ', 'lost', '#EF4444', 8)
         ON CONFLICT DO NOTHING;
     END IF;
 END $$;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
 
 interface ManagerRow {
@@ -26,6 +27,7 @@ export default function ManagersAccessPage() {
   const [managers, setManagers] = useState<ManagerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -70,15 +72,30 @@ export default function ManagersAccessPage() {
     }
   }
 
+  const shell = (content: React.ReactNode) => (
+    <div className="min-h-screen flex bg-gray-50">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="lg:hidden bg-white border-b h-16 flex items-center px-4">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          <span className="ml-4 font-bold text-gray-900 text-lg">Права доступа</span>
+        </header>
+        <main className="flex-1 overflow-auto">{content}</main>
+      </div>
+    </div>
+  );
+
   if (loading) {
-    return (
+    return shell(
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
       </div>
     );
   }
 
-  return (
+  return shell(
     <div className="p-6 max-w-4xl mx-auto">
       <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block">&larr; Главная</Link>
 
@@ -167,3 +184,4 @@ export default function ManagersAccessPage() {
     </div>
   );
 }
+

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import Sidebar from '@/components/layout/Sidebar';
 import { CompanyTypeLabels } from '@/types/b2b';
 import type { CompanyType } from '@/types/b2b';
 
@@ -12,6 +13,7 @@ export default function CreateCompanyPage() {
   const [loading, setLoading] = useState(false);
   const [cities, setCities] = useState<any[]>([]);
   const [managers, setManagers] = useState<any[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -73,7 +75,16 @@ export default function CreateCompanyPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="min-h-screen flex bg-gray-50">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="lg:hidden bg-white border-b h-16 flex items-center px-4">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          <span className="ml-4 font-bold text-gray-900 text-lg">Новая компания</span>
+        </header>
+        <main className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full">
       <Link href="/companies" className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block">&larr; Все компании</Link>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Добавить компанию</h1>
 
@@ -196,6 +207,8 @@ export default function CreateCompanyPage() {
           </button>
         </div>
       </form>
+        </main>
+      </div>
     </div>
   );
 }
