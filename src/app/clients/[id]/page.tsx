@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { supabase as publicSupabase } from '@/lib/supabase';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 
@@ -81,6 +82,8 @@ const clientTypeLabels = {
 export default function ClientPage() {
   const params = useParams();
   const router = useRouter();
+  const supabase = useSchemaClient();
+  const { isLoading: teamLoading } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -96,14 +99,14 @@ export default function ClientPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && !teamLoading) {
       loadClient();
       loadManagers();
     }
-  }, [params.id]);
+  }, [params.id, teamLoading]);
 
   async function loadManagers() {
-    const { data } = await supabase
+    const { data } = await publicSupabase
       .from('managers')
       .select('id, full_name, role, is_active')
       .eq('is_active', true)

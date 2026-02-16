@@ -45,7 +45,7 @@ export function TeamProvider({ children }: TeamProviderProps) {
           .eq('auth_user_id', user.id)
           .single();
         
-        console.log('[TeamProvider] Manager loaded:', manager, 'Error:', managerError);
+        // Manager loaded successfully
         
         if (managerError || !manager) {
           console.error('Manager not found:', managerError);
@@ -91,7 +91,7 @@ export function TeamProvider({ children }: TeamProviderProps) {
             .eq('id', manager.team_id)
             .single();
           
-          console.log('[TeamProvider] Team loaded:', teamData, 'Error:', teamError);
+          // Team loaded
           
           if (teamData) {
             setTeam(teamData);

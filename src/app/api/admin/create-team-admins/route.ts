@@ -24,23 +24,25 @@ interface TeamAdmin {
   team_slug: string;
 }
 
+// Passwords removed from source code for security
+// Team admins already created - this endpoint is for reference only
 const TEAM_ADMINS: TeamAdmin[] = [
   {
     full_name: 'Дарья Георги',
     email: 'daria@kstati-teatr.ru',
-    password: 'Kstati2026!',
+    password: process.env.TEAM_ADMIN_PASSWORD || 'ChangeMe!',
     team_slug: 'kstati'
   },
   {
     full_name: 'Георгий Гуторов',
     email: 'georgiy@etazhi-tf.ru',
-    password: 'Etazhi2026!',
+    password: process.env.TEAM_ADMIN_PASSWORD || 'ChangeMe!',
     team_slug: 'etazhi'
   },
   {
     full_name: 'Игорь Туголуков',
     email: 'igor@atlant-tf.ru',
-    password: 'Atlant2026!',
+    password: process.env.TEAM_ADMIN_PASSWORD || 'ChangeMe!',
     team_slug: 'atlant'
   }
 ];

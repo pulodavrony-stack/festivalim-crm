@@ -297,14 +297,7 @@ export default function PipelinePage() {
     
     setActiveId(null);
 
-    console.log('[DnD] handleDragEnd', { 
-      activeId: active.id, 
-      overId: over?.id, 
-      overType: over ? 'found' : 'null' 
-    });
-
     if (!over) {
-      console.log('[DnD] No over target — dropped in empty space');
       originalStageRef.current = null;
       return;
     }
@@ -313,58 +306,39 @@ export default function PipelinePage() {
     const originalStageId = originalStageRef.current;
     originalStageRef.current = null;
 
-    // over может быть колонкой (stage ID) — проверяем
     let targetStageId: string | null = null;
     
     const targetStage = stages.find((s) => s.id === overId);
     if (targetStage) {
       targetStageId = targetStage.id;
-      console.log('[DnD] Dropped on stage:', targetStage.name);
     } else {
-      // over может быть другой карточкой — находим её колонку
       const overDeal = deals.find((d) => d.id === overId);
       if (overDeal) {
         targetStageId = overDeal.stage_id;
-        console.log('[DnD] Dropped on deal in stage:', targetStageId);
       }
     }
 
-    if (!targetStageId) {
-      console.log('[DnD] Could not determine target stage for overId:', overId);
-      return;
-    }
+    if (!targetStageId) return;
 
     const deal = deals.find((d) => d.id === draggedDealId);
-    if (!deal) {
-      console.log('[DnD] Deal not found:', draggedDealId);
-      return;
-    }
+    if (!deal) return;
 
-    console.log('[DnD] Moving deal from stage', deal.stage_id, 'to', targetStageId);
+    if (deal.stage_id === targetStageId) return;
 
-    // Если бросили в ту же колонку — ничего не делаем
-    if (deal.stage_id === targetStageId) {
-      console.log('[DnD] Same stage, skipping');
-      return;
-    }
-
-    // Оптимистичное обновление UI
+    // Optimistic UI update
     setDeals((prev) =>
       prev.map((d) => d.id === draggedDealId ? { ...d, stage_id: targetStageId! } : d)
     );
 
-    // Сохраняем в БД
-    console.log('[DnD] Saving to Supabase...');
-    const { error, data } = await supabase
+    const { error } = await supabase
       .from('deals')
       .update({ stage_id: targetStageId })
       .eq('id', draggedDealId)
       .select();
 
     if (error) {
-      console.error('[DnD] Supabase error:', error);
+      console.error('Deal move error:', error);
       toast.error('Ошибка перемещения сделки');
-      // Откат
       if (originalStageId) {
         setDeals((prev) =>
           prev.map((d) => d.id === draggedDealId ? { ...d, stage_id: originalStageId } : d)
@@ -373,7 +347,6 @@ export default function PipelinePage() {
         loadStagesAndDeals();
       }
     } else {
-      console.log('[DnD] Saved successfully:', data);
       const targetStageName = stages.find(s => s.id === targetStageId)?.name || '';
       toast.success(`Сделка перемещена в "${targetStageName}"`);
     }

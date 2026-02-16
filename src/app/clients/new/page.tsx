@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 
 interface City {
   id: string;
@@ -17,6 +17,8 @@ interface Source {
 
 export default function NewClientPage() {
   const router = useRouter();
+  const supabase = useSchemaClient();
+  const { isLoading: teamLoading } = useTeam();
   const [loading, setLoading] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -31,12 +33,14 @@ export default function NewClientPage() {
   });
 
   useEffect(() => {
-    loadOptions();
-  }, []);
+    if (!teamLoading) {
+      loadOptions();
+    }
+  }, [teamLoading]);
 
   async function loadOptions() {
     const [citiesResult, sourcesResult] = await Promise.all([
-      supabase.from('cities').select('id, name').order('sort_order'),
+      supabase.from('cities').select('id, name').order('name'),
       supabase.from('lead_sources').select('id, name').eq('is_active', true),
     ]);
 
@@ -48,11 +52,14 @@ export default function NewClientPage() {
     e.preventDefault();
     setLoading(true);
 
+    const phoneNormalized = form.phone.replace(/[^\d]/g, '');
+
     const { data, error } = await supabase
       .from('clients')
       .insert({
         full_name: form.full_name,
         phone: form.phone,
+        phone_normalized: phoneNormalized || null,
         email: form.email || null,
         city_id: form.city_id || null,
         source_id: form.source_id || null,
@@ -69,7 +76,6 @@ export default function NewClientPage() {
       return;
     }
 
-    // Создаём активность
     await supabase.from('activities').insert({
       client_id: data.id,
       activity_type: 'client_created',
@@ -81,7 +87,6 @@ export default function NewClientPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -101,7 +106,6 @@ export default function NewClientPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6">
           <div className="space-y-6">
-            {/* Имя */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 ФИО *
@@ -116,7 +120,6 @@ export default function NewClientPage() {
               />
             </div>
 
-            {/* Телефон */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Телефон *
@@ -131,7 +134,6 @@ export default function NewClientPage() {
               />
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email
@@ -145,7 +147,6 @@ export default function NewClientPage() {
               />
             </div>
 
-            {/* Город и Источник */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -184,7 +185,6 @@ export default function NewClientPage() {
               </div>
             </div>
 
-            {/* Тип клиента */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Тип клиента
@@ -211,7 +211,6 @@ export default function NewClientPage() {
               </div>
             </div>
 
-            {/* Заметки */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Заметки
@@ -226,7 +225,6 @@ export default function NewClientPage() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end space-x-4 mt-8">
             <Link
               href="/clients"
