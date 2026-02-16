@@ -286,6 +286,21 @@ export default function ClientsPage() {
     loadClients();
   }
 
+  async function bulkDeleteClients() {
+    if (selectedClients.size === 0) return;
+    if (!confirm(`Удалить ${selectedClients.size} контактов? Это действие нельзя отменить.`)) return;
+    
+    const ids = Array.from(selectedClients);
+    
+    await supabase.from('deals').delete().in('client_id', ids);
+    await supabase.from('activities').delete().in('client_id', ids);
+    await supabase.from('clients').delete().in('id', ids);
+
+    setSelectedClients(new Set());
+    loadClients();
+    loadReferenceData();
+  }
+
   function resetFilters() {
     setFilters({
       client_type: 'all',
@@ -750,9 +765,15 @@ export default function ClientsPage() {
           </span>
           <button
             onClick={() => setShowAssignModal(true)}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Назначить менеджера
+          </button>
+          <button
+            onClick={bulkDeleteClients}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Удалить
           </button>
           <button
             onClick={() => setSelectedClients(new Set())}

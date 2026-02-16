@@ -88,6 +88,12 @@ export default function ClientPage() {
   const [activeTab, setActiveTab] = useState<'activity' | 'deals' | 'info'>('activity');
   const [newNote, setNewNote] = useState('');
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    full_name: '', phone: '', email: '', 
+    telegram_username: '', whatsapp_phone: '', notes: ''
+  });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -103,6 +109,47 @@ export default function ClientPage() {
       .eq('is_active', true)
       .order('full_name');
     if (data) setManagers(data);
+  }
+
+  function startEditing() {
+    if (!client) return;
+    setEditData({
+      full_name: client.full_name || '',
+      phone: client.phone || '',
+      email: client.email || '',
+      telegram_username: client.telegram_username || '',
+      whatsapp_phone: client.whatsapp_phone || '',
+      notes: client.notes || '',
+    });
+    setIsEditing(true);
+  }
+
+  async function saveEdit() {
+    if (!client) return;
+    const normalized = editData.phone.replace(/[^\d]/g, '');
+    await supabase
+      .from('clients')
+      .update({
+        full_name: editData.full_name,
+        phone: editData.phone || null,
+        phone_normalized: normalized || null,
+        email: editData.email || null,
+        telegram_username: editData.telegram_username || null,
+        whatsapp_phone: editData.whatsapp_phone || null,
+        notes: editData.notes || null,
+      })
+      .eq('id', client.id);
+    setIsEditing(false);
+    loadClient();
+  }
+
+  async function deleteClient() {
+    if (!client) return;
+    // Delete related data first
+    await supabase.from('deals').delete().eq('client_id', client.id);
+    await supabase.from('activities').delete().eq('client_id', client.id);
+    await supabase.from('clients').delete().eq('id', client.id);
+    router.push('/clients');
   }
 
   async function assignManager(managerId: string | null) {
@@ -245,24 +292,30 @@ export default function ClientPage() {
               </span>
             </div>
             <div className="flex items-center space-x-2">
+              <button
+                onClick={startEditing}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium"
+              >
+                ✏️ Редактировать
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="bg-red-100 hover:bg-red-200 text-red-600 px-3 py-2 rounded-lg text-sm font-medium"
+              >
+                🗑️ Удалить
+              </button>
               <ClickToCall 
                 phoneNumber={client.phone}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2"
+                className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1"
               >
                 <span>📞</span>
                 <span>Звонок</span>
               </ClickToCall>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('open-messenger', { detail: { service: 'whatsapp', phone: client.whatsapp_phone || client.phone } }))}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium"
               >
                 💬 WhatsApp
-              </button>
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('open-messenger', { detail: { service: 'max', phone: client.phone } }))}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-              >
-                💜 MAX
               </button>
             </div>
           </div>
@@ -573,6 +626,117 @@ export default function ClientPage() {
           </div>
         </div>
       </main>
+
+      {/* Edit modal */}
+      {isEditing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Редактировать контакт</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ФИО</label>
+                <input
+                  type="text"
+                  value={editData.full_name}
+                  onChange={(e) => setEditData({ ...editData, full_name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                <input
+                  type="text"
+                  value={editData.phone}
+                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editData.email}
+                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
+                <input
+                  type="text"
+                  value={editData.telegram_username}
+                  onChange={(e) => setEditData({ ...editData, telegram_username: e.target.value })}
+                  placeholder="username (без @)"
+                  className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp</label>
+                <input
+                  type="text"
+                  value={editData.whatsapp_phone}
+                  onChange={(e) => setEditData({ ...editData, whatsapp_phone: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Заметки</label>
+                <textarea
+                  value={editData.notes}
+                  onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                  rows={6}
+                  className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={saveEdit}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-lg font-medium"
+              >
+                Сохранить
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-50"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="text-center mb-4">
+              <div className="text-4xl mb-2">⚠️</div>
+              <h3 className="text-lg font-bold text-gray-900">Удалить контакт?</h3>
+              <p className="text-sm text-gray-500 mt-2">
+                <span className="font-medium text-gray-900">{client.full_name}</span>
+                <br />
+                Будут удалены все сделки и история. Это действие нельзя отменить.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={deleteClient}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-lg font-medium"
+              >
+                Удалить
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-50"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
