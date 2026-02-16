@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
   DndContext,
@@ -94,6 +94,14 @@ export default function PipelinePage() {
   
   // Сохраняем оригинальный stage_id для отката
   const originalStageRef = useRef<string | null>(null);
+  
+  // Ref для горизонтального скролла
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Drag-to-scroll state
+  const [isDraggingScroll, setIsDraggingScroll] = useState(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -115,6 +123,69 @@ export default function PipelinePage() {
       activationConstraint: { delay: 200, tolerance: 8 },
     })
   );
+
+  // Горизонтальный скролл колёсиком мыши
+  const handleWheelScroll = useCallback((e: WheelEvent) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    // Если вертикальный скролл, превращаем в горизонтальный
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      container.scrollLeft += e.deltaY;
+    }
+  }, []);
+
+  // Drag-to-scroll (зажатие и перетаскивание пустой области)
+  const handleScrollMouseDown = useCallback((e: React.MouseEvent) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    // Только если кликнули на сам контейнер (не на карточку)
+    if (e.target !== container && e.target !== e.currentTarget) return;
+    
+    setIsDraggingScroll(true);
+    dragStartX.current = e.clientX;
+    scrollStartX.current = container.scrollLeft;
+    container.style.cursor = 'grabbing';
+    container.style.userSelect = 'none';
+  }, []);
+
+  const handleScrollMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingScroll) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const deltaX = e.clientX - dragStartX.current;
+    container.scrollLeft = scrollStartX.current - deltaX;
+  }, [isDraggingScroll]);
+
+  const handleScrollMouseUp = useCallback(() => {
+    setIsDraggingScroll(false);
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.style.cursor = '';
+      container.style.userSelect = '';
+    }
+  }, []);
+
+  // Добавляем обработчик wheel на контейнер
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    container.addEventListener('wheel', handleWheelScroll, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheelScroll);
+  }, [handleWheelScroll]);
+
+  // Global mouseup listener для drag-to-scroll
+  useEffect(() => {
+    if (isDraggingScroll) {
+      const handleGlobalMouseUp = () => handleScrollMouseUp();
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+      return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+    }
+  }, [isDraggingScroll, handleScrollMouseUp]);
 
   useEffect(() => {
     if (!teamLoading) {
@@ -453,7 +524,14 @@ export default function PipelinePage() {
       )}
 
       {/* Pipeline Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-x-auto overflow-y-hidden p-4 cursor-grab scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+        onMouseDown={handleScrollMouseDown}
+        onMouseMove={handleScrollMouseMove}
+        onMouseUp={handleScrollMouseUp}
+        onMouseLeave={handleScrollMouseUp}
+      >
         <DndContext
           sensors={sensors}
           collisionDetection={pointerWithin}

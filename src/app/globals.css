@@ -41,11 +41,12 @@
 
 /* Thin scrollbar for pipeline columns */
 .scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  height: 8px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-gray-100 rounded-full;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
@@ -54,6 +55,19 @@
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-400;
+}
+
+/* Pipeline board horizontal scrollbar - more visible */
+.scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+  @apply bg-gray-300;
+}
+
+.scrollbar-thumb-gray-400::-webkit-scrollbar-thumb {
+  @apply bg-gray-400;
+}
+
+.scrollbar-track-transparent::-webkit-scrollbar-track {
+  @apply bg-gray-100;
 }
 
 /* Deal card */
