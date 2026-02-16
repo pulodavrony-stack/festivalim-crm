@@ -67,8 +67,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: authError.message }, { status: 500 });
     }
 
-    // Create manager record
-    const { data: manager, error: managerError } = await supabaseAdmin
+    // Create manager record - try with full columns first, then fallback
+    let manager;
+    let managerError;
+    
+    // Try full insert first
+    const fullResult = await supabaseAdmin
       .from('managers')
       .insert({
         auth_user_id: authData.user.id,
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
         phone: phone || null,
         role: role || 'manager',
         team_id: team_id || null,
-        can_switch_teams: false,
+        can_switch_teams: role === 'admin',
         is_active,
         has_b2c_access,
         has_b2b_access,
@@ -86,6 +90,32 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
+    
+    if (fullResult.error) {
+      // Fallback: try minimal insert without b2c/b2b columns
+      const minimalResult = await supabaseAdmin
+        .from('managers')
+        .insert({
+          auth_user_id: authData.user.id,
+          email,
+          full_name,
+          phone: phone || null,
+          role: role || 'manager',
+          team_id: team_id || null,
+          can_switch_teams: role === 'admin',
+          is_active,
+          weekly_calls_target: 0,
+          weekly_sales_target: 0
+        })
+        .select()
+        .single();
+      
+      manager = minimalResult.data;
+      managerError = minimalResult.error;
+    } else {
+      manager = fullResult.data;
+      managerError = null;
+    }
 
     if (managerError) {
       // Try to delete the auth user if manager creation failed
