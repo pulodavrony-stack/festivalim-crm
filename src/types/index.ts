@@ -9,7 +9,7 @@ export * from './team';
 // ENUMS
 // =============================================
 
-export type ManagerRole = 'admin' | 'rop' | 'manager' | 'marketer';
+export type ManagerRole = 'admin' | 'team_admin' | 'rop' | 'manager' | 'marketer';
 export type Branch = 'atlant' | 'etazhi';
 
 // Типы клиентов (ключевое!)

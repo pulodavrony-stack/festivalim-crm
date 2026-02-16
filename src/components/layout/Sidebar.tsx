@@ -26,12 +26,14 @@ const mainNav: NavItem[] = [
 ];
 
 const settingsNav: NavItem[] = [
+  { href: '/settings/managers', label: 'Менеджеры', icon: '👤' },
   { href: '/settings/routing', label: 'Распределение', icon: '🎯' },
   { href: '/settings/duplicates', label: 'Дубликаты', icon: '🔄' },
   { href: '/settings/transfer', label: 'Перевалка', icon: '👥' },
   { href: '/settings/managers-access', label: 'Права доступа', icon: '🔐' },
   { href: '/settings/teams', label: 'Команды', icon: '🏢' },
   { href: '/settings/data', label: 'Импорт/Экспорт', icon: '📥' },
+  { href: '/settings/profile', label: 'Мой профиль', icon: '⚙️' },
 ];
 
 interface SidebarProps {
