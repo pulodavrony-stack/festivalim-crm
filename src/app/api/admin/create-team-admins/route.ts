@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
               if (existingManager) {
                 // Update existing manager
-                await supabaseAdmin
+                const { error: updateErr } = await supabaseAdmin
                   .from('managers')
                   .update({
                     role: 'team_admin',
@@ -106,10 +106,14 @@ export async function POST(request: NextRequest) {
                   })
                   .eq('id', existingManager.id);
 
-                results.push({ email: admin.email, status: 'updated' });
+                if (updateErr) {
+                  results.push({ email: admin.email, status: 'error', error: `Update failed: ${updateErr.message}` });
+                } else {
+                  results.push({ email: admin.email, status: 'updated' });
+                }
               } else {
-                // Create manager record
-                await supabaseAdmin
+                // Create manager record - try with minimal columns first
+                const { error: insertErr } = await supabaseAdmin
                   .from('managers')
                   .insert({
                     auth_user_id: existingUser.id,
@@ -119,13 +123,15 @@ export async function POST(request: NextRequest) {
                     team_id: team.id,
                     can_switch_teams: false,
                     is_active: true,
-                    has_b2c_access: true,
-                    has_b2b_access: true,
                     weekly_calls_target: 0,
                     weekly_sales_target: 0
                   });
 
-                results.push({ email: admin.email, status: 'created (manager record)' });
+                if (insertErr) {
+                  results.push({ email: admin.email, status: 'error', error: `Insert failed: ${insertErr.message}` });
+                } else {
+                  results.push({ email: admin.email, status: 'created (manager record)' });
+                }
               }
               continue;
             }
@@ -134,7 +140,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Create manager record
+        // Create manager record - use minimal columns to avoid schema cache issues
         const { error: managerError } = await supabaseAdmin
           .from('managers')
           .insert({
@@ -145,8 +151,6 @@ export async function POST(request: NextRequest) {
             team_id: team.id,
             can_switch_teams: false,
             is_active: true,
-            has_b2c_access: true,
-            has_b2b_access: true,
             weekly_calls_target: 0,
             weekly_sales_target: 0
           });
