@@ -188,8 +188,8 @@ function normalizePhone(phone: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // Use public schema (main database)
-    const dbClient = supabaseAdmin;
+    // Use kstati schema for "Кстати театр" team
+    const dbClient = createSchemaClient('kstati');
     
     // First, get or create Tula city in kstati schema
     let tulaCity: { id: string } | null = null;
@@ -343,8 +343,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      team: 'Общая база (public)',
-      schema: 'public',
+      team: 'Кстати театр',
+      schema: 'kstati',
       city: tulaCity ? 'Тула (создан/найден)' : 'не удалось создать',
       pipeline: b2bPipelineId ? 'B2B (найден)' : 'не найден',
       summary: {

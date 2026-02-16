@@ -44,9 +44,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+    try {
+      // Clear localStorage
+      localStorage.removeItem('selectedTeamId');
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear state
+      setUser(null);
+      setSession(null);
+      
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force redirect even on error
+      window.location.href = '/login';
+    }
   }
 
   return (
