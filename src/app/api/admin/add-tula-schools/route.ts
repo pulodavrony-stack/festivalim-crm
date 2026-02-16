@@ -1,5 +1,5 @@
 // =============================================
-// API: Add Tula Schools to CRM (B2B Module)
+// API: Add Tula Schools to CRM as Clients
 // POST /api/admin/add-tula-schools
 // Team: Кстати театр (schema: kstati)
 // =============================================
@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Create schema-specific client for kstati team
+// Create schema-specific client
 function createSchemaClient(schema: string) {
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
@@ -23,7 +23,7 @@ function createSchemaClient(schema: string) {
   });
 }
 
-// Public admin client for cross-schema operations
+// Public admin client
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
@@ -32,190 +32,169 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 // Данные школ Тулы из официальных источников
+// Добавляем как клиентов с типом "lead" и всей доступной информацией
 const TULA_SCHOOLS = [
   {
-    // Компания
-    name: 'Детская школа искусств №4 г. Тулы',
-    legal_name: 'Муниципальное бюджетное учреждение дополнительного образования «Детская школа искусств № 4»',
-    short_name: 'МБУДО ДШИ № 4',
-    company_type: 'school',
-    actual_address: 'ул. Гагарина (Косая Гора), 1, Тула, 300903',
+    full_name: 'Уткин Сергей Николаевич',
+    organization: 'Детская школа искусств №4 г. Тулы',
+    position: 'Директор',
     phone: '+7 (4872) 23-08-98',
     email: 'dshi4@tularegion.org',
-    website: 'https://dshi4-tula.ru',
-    notes: 'Работает с 1964 года. Доп. телефон: +7 (4872) 77-03-74. Режим работы: пн-пт 9:00-20:00, сб 10:00-20:00',
-    // Контакты
-    contacts: [
-      {
-        full_name: 'Уткин Сергей Николаевич',
-        position: 'Директор',
-        phone: '+7 (4872) 23-08-98',
-        email: 'dshi4@tularegion.org',
-        is_primary: true,
-        is_decision_maker: true
-      },
-      {
-        full_name: 'Агина Татьяна Сергеевна',
-        position: 'Заместитель директора по учебно-воспитательной работе',
-        phone: '+7 (4872) 23-08-98',
-        email: 'dshi4@tularegion.org',
-        is_primary: false,
-        is_decision_maker: true
-      },
-      {
-        full_name: 'Ныркова Елизавета Сергеевна',
-        position: 'Заместитель директора по АХЧ',
-        phone: '+7 (4872) 23-08-98',
-        email: 'dshi4@tularegion.org',
-        is_primary: false,
-        is_decision_maker: false
-      },
-      {
-        full_name: 'Юдина Галина Александровна',
-        position: 'Главный бухгалтер',
-        phone: '+7 (4872) 23-08-98',
-        email: 'dshi4@tularegion.org',
-        is_primary: false,
-        is_decision_maker: false
-      }
-    ]
+    notes: `🏫 МБУДО ДШИ № 4 (Детская школа искусств №4)
+📍 Адрес: ул. Гагарина (Косая Гора), 1, Тула, 300903
+🌐 Сайт: https://dshi4-tula.ru
+📞 Доп. телефон: +7 (4872) 77-03-74
+⏰ Режим работы: пн-пт 9:00-20:00, сб 10:00-20:00
+
+👥 Другие контакты:
+• Агина Татьяна Сергеевна - Зам. директора по УВР, тел: +7 (4872) 23-08-98
+• Ныркова Елизавета Сергеевна - Зам. директора по АХЧ
+• Юдина Галина Александровна - Главный бухгалтер
+
+📝 Работает с 1964 года. Муниципальное учреждение.`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Тульский государственный театр кукол',
-    legal_name: 'Государственное учреждение культуры Тульской области "Тульский государственный театр кукол"',
-    short_name: 'ГУК ТО "Театр кукол"',
-    company_type: 'gov',
-    actual_address: 'ул. Советская, 62/15, Тула, 300000',
-    phone: '+7 (4872) 75-25-45',
+    full_name: 'Богородицкий Юрий Юрьевич',
+    organization: 'Тульский государственный театр кукол',
+    position: 'И.О. художественного руководителя',
+    phone: '+7 (4872) 75-25-05',
     email: 'teatrkukol@tularegion.ru',
-    website: 'https://teatrkukol71.ru',
-    notes: 'Билетная касса: +7(4872) 75-25-45. Коллективная заявка: +7(4872) 75-25-15. Учредитель: Министерство культуры Тульской области',
-    contacts: [
-      {
-        full_name: 'Богородицкий Юрий Юрьевич',
-        position: 'И.О. художественного руководителя',
-        phone: '+7 (4872) 75-25-05',
-        email: 'teatrkukol@tularegion.ru',
-        is_primary: true,
-        is_decision_maker: true
-      },
-      {
-        full_name: 'Румянцева Ирина Всеволодовна',
-        position: 'Начальник отдела по работе со зрителями',
-        phone: '+7 (4872) 75-25-15',
-        email: 'teatrkukol@tularegion.ru',
-        is_primary: false,
-        is_decision_maker: true
-      }
-    ]
+    notes: `🎭 ГУК ТО "Театр кукол"
+📍 Адрес: ул. Советская, 62/15, Тула, 300000
+🌐 Сайт: https://teatrkukol71.ru
+📞 Билетная касса: +7(4872) 75-25-45
+📞 Коллективные заявки: +7(4872) 75-25-15
+
+👥 Другие контакты:
+• Румянцева Ирина Всеволодовна - Начальник отдела по работе со зрителями, тел: +7(4872) 75-25-15
+
+🏛 Учредитель: Министерство культуры Тульской области`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Детская музыкальная школа искусств № 6 г. Тулы',
-    legal_name: 'Муниципальное бюджетное учреждение дополнительного образования «Детская музыкальная школа искусств № 6»',
-    short_name: 'МБУДО ДМШИ № 6',
-    company_type: 'school',
-    actual_address: 'ул. Маршала Жукова, 8, Тула',
+    full_name: 'Директор ДМШИ №6',
+    organization: 'Детская музыкальная школа искусств № 6 г. Тулы',
+    position: 'Директор',
     phone: '+7 (4872) 239-17-22',
     email: '',
-    website: '',
-    notes: 'Детская музыкальная школа искусств',
-    contacts: []
+    notes: `🎵 МБУДО ДМШИ № 6
+📍 Адрес: ул. Маршала Жукова, 8, Тула
+
+Детская музыкальная школа искусств`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Тульская областная детская музыкальная школа им. Г.З. Райхеля',
-    legal_name: 'Государственное учреждение дополнительного образования Тульской области «Детская музыкальная школа имени Г.З. Райхеля»',
-    short_name: 'ДМШ им. Райхеля',
-    company_type: 'school',
-    actual_address: 'пр. Ленина, 95а, Тула',
+    full_name: 'Директор ДМШ им. Райхеля',
+    organization: 'Тульская областная детская музыкальная школа им. Г.З. Райхеля',
+    position: 'Директор',
     phone: '+7 (4872) 35-21-87',
     email: '',
-    website: '',
-    notes: 'Областная музыкальная школа, названа в честь Г.З. Райхеля',
-    contacts: []
+    notes: `🎵 ДМШ им. Г.З. Райхеля
+📍 Адрес: пр. Ленина, 95а, Тула
+
+Областная музыкальная школа, названа в честь Г.З. Райхеля`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Тульский областной театр юного зрителя',
-    legal_name: 'Государственное учреждение культуры Тульской области «Тульский областной театр юного зрителя»',
-    short_name: 'ТЮЗ Тула',
-    company_type: 'gov',
-    actual_address: 'ул. Коминтерна, 2, Тула',
+    full_name: 'Директор ТЮЗ',
+    organization: 'Тульский областной театр юного зрителя',
+    position: 'Директор',
     phone: '+7 (4872) 56-97-66',
     email: '',
-    website: '',
-    notes: 'Областной театр юного зрителя',
-    contacts: []
+    notes: `🎭 ТЮЗ Тула
+📍 Адрес: ул. Коминтерна, 2, Тула
+
+Областной театр юного зрителя`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Театр-студия "Зеркало"',
-    legal_name: '',
-    short_name: 'Студия Зеркало',
-    company_type: 'other',
-    actual_address: 'ул. Демидовская, 52, Тула',
+    full_name: 'Руководитель студии Зеркало',
+    organization: 'Театр-студия "Зеркало"',
+    position: 'Руководитель',
     phone: '+7 (920) 783-89-82',
     email: '',
-    website: '',
-    notes: 'Частная детская театральная студия',
-    contacts: []
+    notes: `🎭 Театр-студия "Зеркало"
+📍 Адрес: ул. Демидовская, 52, Тула
+
+Частная детская театральная студия`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Театральная мастерская "Форма Свободы"',
-    legal_name: '',
-    short_name: 'Форма Свободы',
-    company_type: 'other',
-    actual_address: 'ул. Свободы, 37 к2, Тула',
+    full_name: 'Руководитель "Форма Свободы"',
+    organization: 'Театральная мастерская "Форма Свободы"',
+    position: 'Руководитель',
     phone: '+7 (962) 272-22-10',
     email: '',
-    website: '',
-    notes: 'Театральная мастерская для детей и взрослых',
-    contacts: []
+    notes: `🎭 Театральная мастерская "Форма Свободы"
+📍 Адрес: ул. Свободы, 37 к2, Тула
+
+Театральная мастерская для детей и взрослых`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Модельно-артистическая школа "Прима"',
-    legal_name: '',
-    short_name: 'Школа Прима',
-    company_type: 'other',
-    actual_address: 'ул. Кирова, 135, Тула',
+    full_name: 'Руководитель школы "Прима"',
+    organization: 'Модельно-артистическая школа "Прима"',
+    position: 'Руководитель',
     phone: '+7 (910) 151-94-41',
     email: '',
-    website: '',
-    notes: 'Модельная и артистическая школа для детей',
-    contacts: []
+    notes: `💃 Модельно-артистическая школа "Прима"
+📍 Адрес: ул. Кирова, 135, Тула
+
+Модельная и артистическая школа для детей`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Творческая студия "MUSE"',
-    legal_name: '',
-    short_name: 'Студия MUSE',
-    company_type: 'other',
-    actual_address: 'Красноармейский проспект, 7, Тула',
+    full_name: 'Руководитель студии "MUSE"',
+    organization: 'Творческая студия "MUSE"',
+    position: 'Руководитель',
     phone: '+7 (920) 761-50-41',
     email: '',
-    website: '',
-    notes: 'Творческая студия для детей',
-    contacts: []
+    notes: `🎨 Творческая студия "MUSE"
+📍 Адрес: Красноармейский проспект, 7, Тула
+
+Творческая студия для детей`,
+    client_type: 'lead',
+    status: 'new'
   },
   {
-    name: 'Детская школа искусств № 5 г. Тулы',
-    legal_name: 'Муниципальное бюджетное учреждение дополнительного образования «Детская школа искусств № 5»',
-    short_name: 'МБУДО ДШИ № 5',
-    company_type: 'school',
-    actual_address: 'Центральная ул., 1, посёлок Южный, Тула',
+    full_name: 'Директор ДШИ №5',
+    organization: 'Детская школа искусств № 5 г. Тулы',
+    position: 'Директор',
     phone: '',
     email: '',
-    website: '',
-    notes: 'Муниципальная школа искусств',
-    contacts: []
+    notes: `🏫 МБУДО ДШИ № 5
+📍 Адрес: Центральная ул., 1, посёлок Южный, Тула
+
+Муниципальная школа искусств`,
+    client_type: 'lead',
+    status: 'new'
   }
 ];
 
+// Normalize phone number
+function normalizePhone(phone: string): string {
+  if (!phone) return '';
+  return phone.replace(/[^\d]/g, '');
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Use kstati schema for "Кстати театр" team
-    const kstatiClient = createSchemaClient('kstati');
+    // Use public schema (main database)
+    const dbClient = supabaseAdmin;
     
-    // First, get or create Tula city
+    // First, get or create Tula city in kstati schema
     let tulaCity: { id: string } | null = null;
     
-    const { data: existingCity } = await kstatiClient
+    const { data: existingCity, error: cityError } = await dbClient
       .from('cities')
       .select('id')
       .eq('name', 'Тула')
@@ -223,8 +202,9 @@ export async function POST(request: NextRequest) {
     
     if (existingCity) {
       tulaCity = existingCity;
-    } else {
-      const { data: newCity, error: cityError } = await kstatiClient
+    } else if (cityError?.code === 'PGRST116') {
+      // City doesn't exist, create it
+      const { data: newCity, error: createCityError } = await dbClient
         .from('cities')
         .insert({ name: 'Тула', region: 'Тульская область', is_active: true })
         .select()
@@ -233,7 +213,7 @@ export async function POST(request: NextRequest) {
       if (newCity) {
         tulaCity = newCity;
       } else {
-        console.log('City create error:', cityError);
+        console.log('City create error:', createCityError);
       }
     }
 
@@ -241,7 +221,7 @@ export async function POST(request: NextRequest) {
     let b2bPipelineId: string | null = null;
     let firstStageId: string | null = null;
     
-    const { data: pipeline } = await kstatiClient
+    const { data: pipeline } = await dbClient
       .from('pipelines')
       .select('id')
       .eq('code', 'b2b')
@@ -250,7 +230,7 @@ export async function POST(request: NextRequest) {
     if (pipeline) {
       b2bPipelineId = pipeline.id;
       
-      const { data: stage } = await kstatiClient
+      const { data: stage } = await dbClient
         .from('pipeline_stages')
         .select('id')
         .eq('pipeline_id', b2bPipelineId)
@@ -263,92 +243,74 @@ export async function POST(request: NextRequest) {
     }
 
     const results: Array<{ 
-      name: string; 
+      name: string;
+      organization: string;
       status: string; 
-      company_id?: string;
-      contacts_added?: number;
+      client_id?: string;
       deal_created?: boolean;
       error?: string 
     }> = [];
 
     for (const school of TULA_SCHOOLS) {
       try {
-        // Check if company already exists
-        const { data: existing } = await kstatiClient
-          .from('companies')
-          .select('id')
-          .eq('name', school.name)
-          .single();
+        // Check if client already exists by phone
+        let existing = null;
+        if (school.phone) {
+          const normalized = normalizePhone(school.phone);
+          const { data } = await dbClient
+            .from('clients')
+            .select('id')
+            .eq('phone_normalized', normalized)
+            .single();
+          existing = data;
+        }
 
         if (existing) {
-          results.push({ name: school.name, status: 'already_exists', company_id: existing.id });
+          results.push({ 
+            name: school.full_name, 
+            organization: school.organization,
+            status: 'already_exists', 
+            client_id: existing.id 
+          });
           continue;
         }
 
-        // Insert company
-        const { data: company, error: companyError } = await kstatiClient
-          .from('companies')
+        // Insert client (minimal columns to ensure compatibility)
+        const { data: client, error: clientError } = await dbClient
+          .from('clients')
           .insert({
-            name: school.name,
-            legal_name: school.legal_name || null,
-            short_name: school.short_name || null,
-            company_type: school.company_type,
-            actual_address: school.actual_address,
+            full_name: school.full_name,
             phone: school.phone || null,
+            phone_normalized: normalizePhone(school.phone),
             email: school.email || null,
-            website: school.website || null,
             city_id: tulaCity?.id || null,
-            notes: school.notes,
-            status: 'active'
+            client_type: school.client_type,
+            status: school.status,
+            notes: school.notes
           })
           .select()
           .single();
 
-        if (companyError) {
-          results.push({ name: school.name, status: 'error', error: companyError.message });
+        if (clientError) {
+          results.push({ 
+            name: school.full_name,
+            organization: school.organization,
+            status: 'error', 
+            error: clientError.message 
+          });
           continue;
         }
 
-        let contactsAdded = 0;
-        let primaryContactId: string | null = null;
-
-        // Add contacts
-        if (school.contacts && school.contacts.length > 0 && company) {
-          for (const contact of school.contacts) {
-            const { data: contactData, error: contactError } = await kstatiClient
-              .from('company_contacts')
-              .insert({
-                company_id: company.id,
-                full_name: contact.full_name,
-                position: contact.position,
-                phone: contact.phone || null,
-                email: contact.email || null,
-                is_primary: contact.is_primary,
-                is_decision_maker: contact.is_decision_maker
-              })
-              .select()
-              .single();
-            
-            if (!contactError && contactData) {
-              contactsAdded++;
-              if (contact.is_primary) {
-                primaryContactId = contactData.id;
-              }
-            }
-          }
-        }
-
-        // Create B2B deal
+        // Create B2B deal if pipeline exists
         let dealCreated = false;
-        if (b2bPipelineId && firstStageId && company) {
-          const { error: dealError } = await kstatiClient
+        if (b2bPipelineId && firstStageId && client) {
+          const { error: dealError } = await dbClient
             .from('deals')
             .insert({
-              company_id: company.id,
-              contact_id: primaryContactId,
+              client_id: client.id,
               pipeline_id: b2bPipelineId,
               stage_id: firstStageId,
-              title: `B2B: ${school.short_name || school.name}`,
+              title: `B2B: ${school.organization}`,
               amount: 0,
               is_b2b: true,
               status: 'active'
@@ -358,15 +320,20 @@ export async function POST(request: NextRequest) {
         }
 
         results.push({ 
-          name: school.name, 
+          name: school.full_name,
+          organization: school.organization,
           status: 'created',
-          company_id: company?.id,
-          contacts_added: contactsAdded,
+          client_id: client?.id,
           deal_created: dealCreated
         });
 
       } catch (err: any) {
-        results.push({ name: school.name, status: 'error', error: err.message });
+        results.push({ 
+          name: school.full_name,
+          organization: school.organization,
+          status: 'error', 
+          error: err.message 
+        });
       }
     }
 
@@ -376,10 +343,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      team: 'Кстати театр',
-      schema: 'kstati',
-      city: tulaCity ? 'Тула' : 'not_created',
-      pipeline: b2bPipelineId ? 'B2B' : 'not_found',
+      team: 'Общая база (public)',
+      schema: 'public',
+      city: tulaCity ? 'Тула (создан/найден)' : 'не удалось создать',
+      pipeline: b2bPipelineId ? 'B2B (найден)' : 'не найден',
       summary: {
         total: TULA_SCHOOLS.length,
         created,
@@ -399,7 +366,13 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     team: 'Кстати театр',
     schema: 'kstati',
-    schools: TULA_SCHOOLS,
+    schools: TULA_SCHOOLS.map(s => ({
+      full_name: s.full_name,
+      organization: s.organization,
+      position: s.position,
+      phone: s.phone,
+      email: s.email
+    })),
     count: TULA_SCHOOLS.length,
     note: 'Данные из публичных источников (официальные сайты школ г. Тулы). Для добавления в CRM отправьте POST запрос.'
   });
