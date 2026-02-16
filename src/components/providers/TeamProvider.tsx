@@ -45,20 +45,42 @@ export function TeamProvider({ children }: TeamProviderProps) {
           .eq('auth_user_id', user.id)
           .single();
         
+        console.log('[TeamProvider] Manager loaded:', manager, 'Error:', managerError);
+        
         if (managerError || !manager) {
           console.error('Manager not found:', managerError);
-          // Используем схему по умолчанию
-          const { data: defaultTeam } = await publicClient
+          // Загружаем все команды и берём первую
+          const { data: teamsData } = await publicClient
             .from('teams')
             .select('*')
-            .eq('slug', 'atlant')
-            .single();
+            .eq('is_active', true)
+            .order('name')
+            .limit(1);
           
-          if (defaultTeam) {
-            setTeam(defaultTeam);
+          if (teamsData && teamsData.length > 0) {
+            setTeam(teamsData[0]);
           }
           setIsLoading(false);
           return;
+        }
+        
+        // Если может переключаться между командами (admin или can_switch_teams)
+        const canSwitch = manager.can_switch_teams || manager.role === 'admin';
+        setCanSwitchTeams(canSwitch);
+        
+        // Загружаем все команды если может переключаться
+        let teamsData: Team[] = [];
+        if (canSwitch) {
+          const { data } = await publicClient
+            .from('teams')
+            .select('*')
+            .eq('is_active', true)
+            .order('name');
+          
+          if (data) {
+            teamsData = data;
+            setAllTeams(data);
+          }
         }
         
         // Получаем команду менеджера
@@ -69,26 +91,14 @@ export function TeamProvider({ children }: TeamProviderProps) {
             .eq('id', manager.team_id)
             .single();
           
+          console.log('[TeamProvider] Team loaded:', teamData, 'Error:', teamError);
+          
           if (teamData) {
             setTeam(teamData);
           }
-        }
-        
-        // Если может переключаться между командами (admin или can_switch_teams)
-        const canSwitch = manager.can_switch_teams || manager.role === 'admin';
-        setCanSwitchTeams(canSwitch);
-        
-        if (canSwitch) {
-          // Загружаем все активные команды
-          const { data: teamsData } = await publicClient
-            .from('teams')
-            .select('*')
-            .eq('is_active', true)
-            .order('name');
-          
-          if (teamsData) {
-            setAllTeams(teamsData);
-          }
+        } else if (canSwitch && teamsData.length > 0) {
+          // Для супер-админов без team_id берём первую команду
+          setTeam(teamsData[0]);
         }
         
       } catch (error) {
@@ -111,18 +121,26 @@ export function TeamProvider({ children }: TeamProviderProps) {
     }
   }, [allTeams]);
   
-  // Восстановление выбора из localStorage
+  // Восстановление выбора из localStorage (только для тех, кто может переключаться)
   useEffect(() => {
-    if (canSwitchTeams && allTeams.length > 0 && !isLoading) {
+    if (canSwitchTeams && allTeams.length > 0 && !isLoading && team) {
       const savedTeamId = localStorage.getItem('selectedTeamId');
-      if (savedTeamId) {
+      // Только восстанавливаем если сохранённая команда отличается от текущей
+      if (savedTeamId && savedTeamId !== team.id) {
         const savedTeam = allTeams.find(t => t.id === savedTeamId);
         if (savedTeam) {
           setTeam(savedTeam);
         }
       }
     }
-  }, [canSwitchTeams, allTeams, isLoading]);
+  }, [canSwitchTeams, allTeams, isLoading, team]);
+  
+  // Очистка localStorage при смене пользователя
+  useEffect(() => {
+    if (!user) {
+      localStorage.removeItem('selectedTeamId');
+    }
+  }, [user]);
   
   const value: TeamContext = useMemo(() => ({
     team,
