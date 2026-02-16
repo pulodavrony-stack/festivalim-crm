@@ -18,6 +18,7 @@ interface Client {
   city?: { name: string } | { name: string }[];
   source?: { name: string };
   manager?: { id: string; full_name: string };
+  manager_id?: string;
   telegram_username: string;
   whatsapp_phone: string;
   preferred_genres: string[];
@@ -30,6 +31,13 @@ interface Client {
   last_contact_date: string;
   created_at: string;
   updated_at: string;
+}
+
+interface Manager {
+  id: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
 }
 
 interface Activity {
@@ -79,12 +87,50 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'activity' | 'deals' | 'info'>('activity');
   const [newNote, setNewNote] = useState('');
+  const [managers, setManagers] = useState<Manager[]>([]);
 
   useEffect(() => {
     if (params.id) {
       loadClient();
+      loadManagers();
     }
   }, [params.id]);
+
+  async function loadManagers() {
+    const { data } = await supabase
+      .from('managers')
+      .select('id, full_name, role, is_active')
+      .eq('is_active', true)
+      .order('full_name');
+    if (data) setManagers(data);
+  }
+
+  async function assignManager(managerId: string | null) {
+    if (!client) return;
+    
+    await supabase
+      .from('clients')
+      .update({ manager_id: managerId })
+      .eq('id', client.id);
+
+    // Also update all active deals for this client
+    if (managerId) {
+      await supabase
+        .from('deals')
+        .update({ manager_id: managerId })
+        .eq('client_id', client.id)
+        .eq('status', 'active');
+    }
+
+    const managerName = managers.find(m => m.id === managerId)?.full_name || 'Не назначен';
+    await supabase.from('activities').insert({
+      client_id: client.id,
+      activity_type: 'note',
+      content: `Назначен менеджер: ${managerName}`,
+    });
+
+    loadClient();
+  }
 
   async function loadClient() {
     const [clientResult, activitiesResult, dealsResult] = await Promise.all([
@@ -468,6 +514,30 @@ export default function ClientPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Assign manager */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-4">
+                Менеджер
+              </h3>
+              <select
+                value={client.manager_id || ''}
+                onChange={(e) => assignManager(e.target.value || null)}
+                className="w-full px-3 py-2 border rounded-lg focus:border-red-500 outline-none text-sm"
+              >
+                <option value="">Не назначен</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.full_name} ({m.role === 'admin' ? 'Админ' : m.role === 'team_admin' ? 'Тим-лид' : m.role === 'rop' ? 'РОП' : 'Менеджер'})
+                  </option>
+                ))}
+              </select>
+              {client.manager?.full_name && (
+                <div className="mt-2 text-sm text-gray-500">
+                  Текущий: <span className="font-medium text-gray-700">{client.manager.full_name}</span>
+                </div>
+              )}
             </div>
 
             {/* Change type */}

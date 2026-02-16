@@ -83,6 +83,8 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [totalStats, setTotalStats] = useState({ all: 0, lead: 0, pk: 0, kb: 0 });
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [showAssignModal, setShowAssignModal] = useState(false);
   
   // Reference data
   const [cities, setCities] = useState<City[]>([]);
@@ -242,6 +244,46 @@ export default function ClientsPage() {
       }
     }
     setLoading(false);
+  }
+
+  function toggleSelectClient(id: string) {
+    setSelectedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedClients.size === filteredClients.length) {
+      setSelectedClients(new Set());
+    } else {
+      setSelectedClients(new Set(filteredClients.map(c => c.id)));
+    }
+  }
+
+  async function bulkAssignManager(managerId: string) {
+    if (selectedClients.size === 0) return;
+    
+    const ids = Array.from(selectedClients);
+    
+    // Update clients
+    await supabase
+      .from('clients')
+      .update({ manager_id: managerId })
+      .in('id', ids);
+
+    // Update active deals
+    await supabase
+      .from('deals')
+      .update({ manager_id: managerId })
+      .in('client_id', ids)
+      .eq('status', 'active');
+
+    setSelectedClients(new Set());
+    setShowAssignModal(false);
+    loadClients();
   }
 
   function resetFilters() {
@@ -587,6 +629,14 @@ export default function ClientsPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-2 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedClients.size === filteredClients.length && filteredClients.length > 0}
+                      onChange={toggleSelectAll}
+                      className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Клиент
                   </th>
@@ -614,8 +664,16 @@ export default function ClientsPage() {
                                 {filteredClients.map((client) => (
                   <tr
                     key={client.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedClients.has(client.id) ? 'bg-red-50' : ''}`}
                   >
+                    <td className="px-2 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.has(client.id)}
+                        onChange={() => toggleSelectClient(client.id)}
+                        className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                      />
+                    </td>
                     <td className="px-4 py-4">
                       <Link href={`/clients/${client.id}`} className="block">
                         <div className="font-medium text-gray-900 hover:text-red-500">
@@ -683,6 +741,58 @@ export default function ClientsPage() {
           )}
         </div>
       </main>
+
+      {/* Bulk actions bar */}
+      {selectedClients.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-4 z-50">
+          <span className="text-sm font-medium">
+            Выбрано: {selectedClients.size}
+          </span>
+          <button
+            onClick={() => setShowAssignModal(true)}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Назначить менеджера
+          </button>
+          <button
+            onClick={() => setSelectedClients(new Set())}
+            className="text-gray-400 hover:text-white px-3 py-2 text-sm transition-colors"
+          >
+            Отмена
+          </button>
+        </div>
+      )}
+
+      {/* Assign manager modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Назначить менеджера
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Выбрано клиентов: {selectedClients.size}
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {managers.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => bulkAssignManager(m.id)}
+                  className="w-full text-left px-4 py-3 rounded-lg hover:bg-red-50 transition-colors border border-gray-200 hover:border-red-300"
+                >
+                  <div className="font-medium text-gray-900">{m.full_name}</div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowAssignModal(false)}
+              className="mt-4 w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded-lg"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
