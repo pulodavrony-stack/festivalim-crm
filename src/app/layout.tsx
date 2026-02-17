@@ -6,6 +6,7 @@ import { TeamProvider } from '@/components/providers/TeamProvider';
 import PhoneWidgetWrapper from '@/components/phone/PhoneWidgetWrapper';
 import { ToastProvider } from '@/components/ui/Toast';
 import EmbeddedMessenger from '@/components/messaging/EmbeddedMessenger';
+import { QuickAddButton } from '@/components/clients/QuickAddContact';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
@@ -56,6 +57,7 @@ export default function RootLayout({
               </div>
               <PhoneWidgetWrapper />
               <EmbeddedMessenger />
+              <QuickAddButton />
             </ToastProvider>
           </TeamProvider>
         </AuthProvider>
