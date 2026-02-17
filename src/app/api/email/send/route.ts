@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      messageId: result.messageId,
+      emailId: result.result?.email_id,
     });
   } catch (error: any) {
     console.error('Email send error:', error);
