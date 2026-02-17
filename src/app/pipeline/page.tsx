@@ -215,7 +215,7 @@ function PipelinePage() {
     if (activePipeline && !teamLoading) {
       loadStagesAndDeals();
     }
-  }, [activePipeline]);
+  }, [activePipeline, isAdmin, currentManagerId]);
 
   async function loadFilterData() {
     const publicClient = getPublicClient();
@@ -256,7 +256,7 @@ function PipelinePage() {
         .from('deals')
         .select(`
           *,
-          client:clients(id, full_name, phone, client_type, city_id),
+          client:clients(id, full_name, phone, client_type, city_id, manager_id),
           event:events(id, event_date, show:shows(id, title))
         `)
         .eq('pipeline_id', activePipeline)
@@ -265,7 +265,17 @@ function PipelinePage() {
     ]);
 
     if (stagesResult.data) setStages(stagesResult.data);
-    if (dealsResult.data) setDeals(dealsResult.data);
+    
+    // For non-admins, filter by deal's manager_id OR client's manager_id
+    let dealsData = dealsResult.data || [];
+    if (!isAdmin && currentManagerId) {
+      dealsData = dealsData.filter(deal => 
+        deal.manager_id === currentManagerId || 
+        (deal.client as any)?.manager_id === currentManagerId
+      );
+    }
+    
+    setDeals(dealsData);
   }
 
   // Filter deals
