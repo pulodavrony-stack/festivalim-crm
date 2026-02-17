@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
+import Tooltip from '@/components/ui/Tooltip';
 
 interface Client {
   id: string;
@@ -453,15 +454,19 @@ export default function ClientsPage() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Link
-                href="/clients/new"
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                + Добавить контакт
-              </Link>
-              <Link href="/" className="text-gray-600 hover:text-gray-900">
-                ← Назад
-              </Link>
+              <Tooltip content="Создать контакт с полной формой" position="bottom">
+                <Link
+                  href="/clients/new"
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  + Добавить контакт
+                </Link>
+              </Tooltip>
+              <Tooltip content="Вернуться на главную" position="bottom">
+                <Link href="/" className="text-gray-600 hover:text-gray-900">
+                  ← Назад
+                </Link>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -470,62 +475,72 @@ export default function ClientsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <button
-            onClick={() => setFilters({ ...filters, client_type: 'all' })}
-            className={`p-4 rounded-xl text-left transition-all ${
-              filters.client_type === 'all'
-                ? 'bg-gray-900 text-white shadow-lg'
-                : 'bg-white hover:shadow-md'
-            }`}
-          >
-            <div className="text-2xl font-bold">{stats.all}</div>
-            <div className="text-sm opacity-70">Всего</div>
-          </button>
-          <button
-            onClick={() => setFilters({ ...filters, client_type: 'lead' })}
-            className={`p-4 rounded-xl text-left transition-all ${
-              filters.client_type === 'lead'
-                ? 'bg-blue-500 text-white shadow-lg'
-                : 'bg-white hover:shadow-md'
-            }`}
-          >
-            <div className="text-2xl font-bold">{stats.lead}</div>
-            <div className="text-sm opacity-70">Лиды</div>
-          </button>
-          <button
-            onClick={() => setFilters({ ...filters, client_type: 'pk' })}
-            className={`p-4 rounded-xl text-left transition-all ${
-              filters.client_type === 'pk'
-                ? 'bg-purple-500 text-white shadow-lg'
-                : 'bg-white hover:shadow-md'
-            }`}
-          >
-            <div className="text-2xl font-bold">{stats.pk}</div>
-            <div className="text-sm opacity-70">ПК</div>
-          </button>
-          <button
-            onClick={() => setFilters({ ...filters, client_type: 'kb' })}
-            className={`p-4 rounded-xl text-left transition-all ${
-              filters.client_type === 'kb'
-                ? 'bg-green-500 text-white shadow-lg'
-                : 'bg-white hover:shadow-md'
-            }`}
-          >
-            <div className="text-2xl font-bold">{stats.kb}</div>
-            <div className="text-sm opacity-70">КБ</div>
-          </button>
+          <Tooltip content="Показать все контакты" position="bottom">
+            <button
+              onClick={() => setFilters({ ...filters, client_type: 'all' })}
+              className={`p-4 rounded-xl text-left transition-all w-full ${
+                filters.client_type === 'all'
+                  ? 'bg-gray-900 text-white shadow-lg'
+                  : 'bg-white hover:shadow-md'
+              }`}
+            >
+              <div className="text-2xl font-bold">{stats.all}</div>
+              <div className="text-sm opacity-70">Всего</div>
+            </button>
+          </Tooltip>
+          <Tooltip content="Фильтр: показать только лиды" position="bottom">
+            <button
+              onClick={() => setFilters({ ...filters, client_type: 'lead' })}
+              className={`p-4 rounded-xl text-left transition-all w-full ${
+                filters.client_type === 'lead'
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'bg-white hover:shadow-md'
+              }`}
+            >
+              <div className="text-2xl font-bold">{stats.lead}</div>
+              <div className="text-sm opacity-70">Лиды</div>
+            </button>
+          </Tooltip>
+          <Tooltip content="Фильтр: потенциальные клиенты" position="bottom">
+            <button
+              onClick={() => setFilters({ ...filters, client_type: 'pk' })}
+              className={`p-4 rounded-xl text-left transition-all w-full ${
+                filters.client_type === 'pk'
+                  ? 'bg-purple-500 text-white shadow-lg'
+                  : 'bg-white hover:shadow-md'
+              }`}
+            >
+              <div className="text-2xl font-bold">{stats.pk}</div>
+              <div className="text-sm opacity-70">ПК</div>
+            </button>
+          </Tooltip>
+          <Tooltip content="Фильтр: клиентская база" position="bottom">
+            <button
+              onClick={() => setFilters({ ...filters, client_type: 'kb' })}
+              className={`p-4 rounded-xl text-left transition-all w-full ${
+                filters.client_type === 'kb'
+                  ? 'bg-green-500 text-white shadow-lg'
+                  : 'bg-white hover:shadow-md'
+              }`}
+            >
+              <div className="text-2xl font-bold">{stats.kb}</div>
+              <div className="text-sm opacity-70">КБ</div>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Search and Filter Toggle */}
         <div className="flex gap-4 mb-4">
           <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Поиск по имени, телефону или email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all"
-            />
+            <Tooltip content="Поиск по ФИО, номеру телефона или e-mail" position="bottom">
+              <input
+                type="text"
+                placeholder="Поиск по имени, телефону или email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all"
+              />
+            </Tooltip>
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}

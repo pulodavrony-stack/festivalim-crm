@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useSchemaClient } from '@/components/providers/TeamProvider';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
+import Tooltip from '@/components/ui/Tooltip';
 import ClientEditModal from './ClientEditModal';
+import QuickAddContact from './QuickAddContact';
 
 interface Client {
   id: string;
@@ -123,6 +125,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   const [showPitchSelector, setShowPitchSelector] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [newReminder, setNewReminder] = useState({ event_id: '', days_before: '3', channel: 'whatsapp' });
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   useEffect(() => {
     if (isOpen && clientId) {
@@ -290,51 +293,71 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                     {loading ? 'Загрузка...' : client?.full_name}
                   </h2>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <Tooltip content="Закрыть карточку" shortcut="Esc" position="left">
+                  <button
+                    onClick={onClose}
+                    className="text-white/80 hover:text-white transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </Tooltip>
               </div>
 
               {/* Quick actions */}
               {client && (
                 <div className="mt-4 space-y-2">
                   <div className="flex gap-2">
-                    <ClickToCall 
-                      phoneNumber={client.phone || ''}
-                      className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
-                    >
-                      📞 Звонок
-                    </ClickToCall>
-                    <button
-                      onClick={() => {
-                        const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
-                        if (phone) window.open(`https://web.whatsapp.com/send?phone=${phone}`, '_blank');
-                      }}
-                      className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
-                    >
-                      💬 WhatsApp
-                    </button>
-                    <button
-                      onClick={() => {
-                        const phone = (client.phone || '').replace(/[^\d]/g, '');
-                        window.open(phone ? `https://web.max.ru/#/chat?phone=${phone}` : 'https://web.max.ru/', '_blank');
-                      }}
-                      className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
-                    >
-                      💜 MAX
-                    </button>
+                    <Tooltip content="Позвонить клиенту через SIP" position="bottom">
+                      <ClickToCall 
+                        phoneNumber={client.phone || ''}
+                        className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                      >
+                        📞 Звонок
+                      </ClickToCall>
+                    </Tooltip>
+                    <Tooltip content="Открыть чат в WhatsApp Web" position="bottom">
+                      <button
+                        onClick={() => {
+                          const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
+                          if (phone) window.open(`https://web.whatsapp.com/send?phone=${phone}`, '_blank');
+                        }}
+                        className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                      >
+                        💬 WhatsApp
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Открыть чат в MAX мессенджере" position="bottom">
+                      <button
+                        onClick={() => {
+                          const phone = (client.phone || '').replace(/[^\d]/g, '');
+                          window.open(phone ? `https://web.max.ru/#/chat?phone=${phone}` : 'https://web.max.ru/', '_blank');
+                        }}
+                        className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                      >
+                        💜 MAX
+                      </button>
+                    </Tooltip>
                   </div>
-                  <button
-                    onClick={() => setIsEditModalOpen(true)}
-                    className="w-full bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
-                  >
-                    ✏️ Редактировать
-                  </button>
+                  <div className="flex gap-2">
+                    <Tooltip content="Изменить данные контакта" position="bottom">
+                      <button
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="flex-1 bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
+                      >
+                        ✏️ Редактировать
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Быстро добавить до 30 контактов" position="bottom">
+                      <button
+                        onClick={() => setShowQuickAdd(true)}
+                        className="flex-1 bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
+                      >
+                        ⚡ Добавить контакты
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
               )}
             </div>
@@ -401,24 +424,30 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
 
                   {/* Stats */}
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <div className="text-2xl font-bold text-gray-900">
-                        {client.total_purchases || 0}
+                    <Tooltip content="Общее количество завершённых покупок" position="bottom">
+                      <div className="bg-gray-50 rounded-xl p-3 text-center w-full cursor-default">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {client.total_purchases || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">Покупок</div>
                       </div>
-                      <div className="text-xs text-gray-500">Покупок</div>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <div className="text-lg font-bold text-green-600">
-                        {(client.total_revenue || 0).toLocaleString('ru-RU')} ₽
+                    </Tooltip>
+                    <Tooltip content="Сумма всех оплаченных сделок" position="bottom">
+                      <div className="bg-gray-50 rounded-xl p-3 text-center w-full cursor-default">
+                        <div className="text-lg font-bold text-green-600">
+                          {(client.total_revenue || 0).toLocaleString('ru-RU')} ₽
+                        </div>
+                        <div className="text-xs text-gray-500">Сумма</div>
                       </div>
-                      <div className="text-xs text-gray-500">Сумма</div>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <div className="text-lg font-bold text-gray-900">
-                        {deals.filter(d => d.status === 'active').length}
+                    </Tooltip>
+                    <Tooltip content="Количество активных сделок в воронке" position="bottom">
+                      <div className="bg-gray-50 rounded-xl p-3 text-center w-full cursor-default">
+                        <div className="text-lg font-bold text-gray-900">
+                          {deals.filter(d => d.status === 'active').length}
+                        </div>
+                        <div className="text-xs text-gray-500">Активных</div>
                       </div>
-                      <div className="text-xs text-gray-500">Активных</div>
-                    </div>
+                    </Tooltip>
                   </div>
 
                   {/* Tags */}
@@ -445,30 +474,38 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                     {client.phone && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Телефон</span>
-                        <ClickToCall phoneNumber={client.phone || ''} className="text-sm font-medium" />
+                        <Tooltip content="Нажмите, чтобы позвонить" position="left">
+                          <ClickToCall phoneNumber={client.phone || ''} className="text-sm font-medium" />
+                        </Tooltip>
                       </div>
                     )}
                     {client.email && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Email</span>
-                        <a href={`mailto:${client.email}`} className="text-sm font-medium text-blue-600 hover:underline truncate ml-4 max-w-[200px]">{client.email}</a>
+                        <Tooltip content="Открыть почтовый клиент" position="left">
+                          <a href={`mailto:${client.email}`} className="text-sm font-medium text-blue-600 hover:underline truncate ml-4 max-w-[200px]">{client.email}</a>
+                        </Tooltip>
                       </div>
                     )}
                     {client.telegram_username && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Telegram</span>
-                        <button 
-                          onClick={() => window.open(`https://t.me/${client.telegram_username.replace('@', '')}`, '_blank')}
-                          className="text-sm font-medium text-blue-600 hover:underline"
-                        >
-                          @{client.telegram_username}
-                        </button>
+                        <Tooltip content="Открыть чат в Telegram" position="left">
+                          <button 
+                            onClick={() => window.open(`https://t.me/${client.telegram_username.replace('@', '')}`, '_blank')}
+                            className="text-sm font-medium text-blue-600 hover:underline"
+                          >
+                            @{client.telegram_username}
+                          </button>
+                        </Tooltip>
                       </div>
                     )}
                     {(client as any).whatsapp_phone && (client as any).whatsapp_phone !== client.phone && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">WhatsApp</span>
-                        <span className="text-sm font-medium text-gray-900">{(client as any).whatsapp_phone}</span>
+                        <Tooltip content="Номер WhatsApp" position="left">
+                          <span className="text-sm font-medium text-gray-900">{(client as any).whatsapp_phone}</span>
+                        </Tooltip>
                       </div>
                     )}
                   </div>
@@ -601,26 +638,34 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Добавить заметку</h3>
                     <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        placeholder="Введите или надиктуйте..."
-                        value={newNote}
-                        onChange={(e) => setNewNote(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                        className="flex-1 px-3 py-2 border rounded-lg text-sm focus:border-red-500 outline-none"
-                      />
-                      <VoiceInput
-                        size="sm"
-                        onResult={(text) => setNewNote(text)}
-                        onAppend={(text) => setNewNote(prev => prev ? prev + ' ' + text : text)}
-                      />
-                      <button
-                        onClick={addNote}
-                        disabled={!newNote.trim()}
-                        className="bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        +
-                      </button>
+                      <Tooltip content="Нажмите Enter для сохранения заметки" position="top">
+                        <input
+                          type="text"
+                          placeholder="Введите или надиктуйте..."
+                          value={newNote}
+                          onChange={(e) => setNewNote(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:border-red-500 outline-none"
+                        />
+                      </Tooltip>
+                      <Tooltip content="Голосовой ввод заметки" position="top">
+                        <div>
+                          <VoiceInput
+                            size="sm"
+                            onResult={(text) => setNewNote(text)}
+                            onAppend={(text) => setNewNote(prev => prev ? prev + ' ' + text : text)}
+                          />
+                        </div>
+                      </Tooltip>
+                      <Tooltip content="Сохранить заметку" shortcut="Enter" position="top">
+                        <button
+                          onClick={addNote}
+                          disabled={!newNote.trim()}
+                          className="bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          +
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
 
@@ -680,6 +725,15 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
         loadClient();
         setIsEditModalOpen(false);
       }}
+    />
+
+    {/* Quick Add Contacts */}
+    <QuickAddContact
+      isOpen={showQuickAdd}
+      onClose={() => setShowQuickAdd(false)}
+      onSuccess={() => loadClient()}
+      parentClientId={clientId}
+      parentName={client?.full_name}
     />
     </>
   );
