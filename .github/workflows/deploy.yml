@@ -27,7 +27,10 @@ jobs:
             rm -rf .next
             npm install
             npm run build
-            pm2 restart festivalim-crm 2>/dev/null || systemctl restart festivalim-crm 2>/dev/null || true
-            pm2 status 2>/dev/null || systemctl status festivalim-crm --no-pager 2>/dev/null || true
-            sleep 3
+            pm2 delete festivalim-crm 2>/dev/null || true
+            pm2 start npm --name festivalim-crm -- start 2>/dev/null || systemctl restart festivalim-crm 2>/dev/null || true
+            nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
+            sleep 5
+            pm2 status 2>/dev/null || true
+            curl -s http://localhost:3000/ -o /dev/null -w "Local status: %{http_code}\n" 2>/dev/null || true
             echo "✅ Deployed successfully!"
