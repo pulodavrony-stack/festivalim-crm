@@ -128,38 +128,42 @@ export default function ClientsPage() {
   }, [filters, teamLoading, teamSchema]);
 
   async function loadReferenceData() {
-    const publicClient = getPublicClient();
-    const [citiesRes, managersRes, tagsRes, allClientsRes] = await Promise.all([
-      supabase.from('cities').select('id, name').order('name'),
-      publicClient.from('managers').select('id, full_name').eq('is_active', true),
-      supabase.from('tags').select('id, name, color').order('name'),
-      supabase.from('clients').select('client_type'),
-    ]);
-    
-    if (citiesRes.data) setCities(citiesRes.data);
-    if (managersRes.data) setManagers(managersRes.data);
-    if (tagsRes.data) setTags(tagsRes.data);
-    if (allClientsRes.data) {
-      const all = allClientsRes.data;
-      setTotalStats({
-        all: all.length,
-        lead: all.filter(c => c.client_type === 'lead').length,
-        pk: all.filter(c => c.client_type === 'pk').length,
-        kb: all.filter(c => c.client_type === 'kb').length,
-      });
+    try {
+      const publicClient = getPublicClient();
+      
+      const [citiesRes, managersRes, allClientsRes] = await Promise.all([
+        supabase.from('cities').select('id, name').order('name'),
+        publicClient.from('managers').select('id, full_name').eq('is_active', true),
+        supabase.from('clients').select('client_type'),
+      ]);
+      
+      if (citiesRes.data) setCities(citiesRes.data);
+      if (managersRes.data) setManagers(managersRes.data);
+      if (allClientsRes.data) {
+        const all = allClientsRes.data;
+        setTotalStats({
+          all: all.length,
+          lead: all.filter(c => c.client_type === 'lead').length,
+          pk: all.filter(c => c.client_type === 'pk').length,
+          kb: all.filter(c => c.client_type === 'kb').length,
+        });
+      }
+      
+      // Tags - optional, may not exist in all schemas
+      const { data: tagsData } = await supabase.from('tags').select('id, name, color').order('name');
+      if (tagsData) setTags(tagsData);
+    } catch (err) {
+      console.error('Error loading reference data:', err);
     }
   }
 
   async function loadClients() {
     setLoading(true);
-    
+    try {
+    // Simple query without cross-schema joins
     let query = supabase
       .from('clients')
-      .select(`
-        *,
-        city:cities(name),
-        source:lead_sources(name)
-      `)
+      .select('*')
       .order(filters.sort_by, { ascending: filters.sort_order === 'asc' })
       .limit(200);
 
@@ -189,14 +193,59 @@ export default function ClientsPage() {
 
     const { data, error } = await query;
     
+    // Load city and source names separately
+    let citiesMap: Record<string, string> = {};
+    let sourcesMap: Record<string, string> = {};
+    
+    if (data && data.length > 0) {
+      const cityIds = [...new Set(data.map(c => c.city_id).filter(Boolean))];
+      const sourceIds = [...new Set(data.map(c => c.source_id).filter(Boolean))];
+      
+      if (cityIds.length > 0) {
+        const { data: citiesData } = await supabase
+          .from('cities')
+          .select('id, name')
+          .in('id', cityIds);
+        if (citiesData) {
+          citiesData.forEach(c => { citiesMap[c.id] = c.name; });
+        }
+      }
+      
+      if (sourceIds.length > 0) {
+        const { data: sourcesData } = await supabase
+          .from('lead_sources')
+          .select('id, name')
+          .in('id', sourceIds);
+        if (sourcesData) {
+          sourcesData.forEach(s => { sourcesMap[s.id] = s.name; });
+        }
+      }
+    }
+    
     if (data) {
-      // Load tags for clients
+      // Enrich clients with city and source names
+      data.forEach((c: any) => {
+        if (c.city_id && citiesMap[c.city_id]) {
+          c.city = { name: citiesMap[c.city_id] };
+        }
+        if (c.source_id && sourcesMap[c.source_id]) {
+          c.source = { name: sourcesMap[c.source_id] };
+        }
+      });
+      
+      // Load tags for clients (optional - may not exist)
       const clientIds = data.map(c => c.id);
+      let clientTags: any[] | null = null;
       if (clientIds.length > 0) {
-        const { data: clientTags } = await supabase
-          .from('client_tags')
-          .select('client_id, tag:tags(id, name, color)')
-          .in('client_id', clientIds);
+        try {
+          const { data: tagsResult } = await supabase
+            .from('client_tags')
+            .select('client_id, tag:tags(id, name, color)')
+            .in('client_id', clientIds);
+          clientTags = tagsResult;
+        } catch (e) {
+          // Tags table may not exist in this schema
+        }
         
         // Merge tags into clients
         const clientsWithTags = data.map(client => ({
@@ -249,7 +298,11 @@ export default function ClientsPage() {
         setClients([]);
       }
     }
-    setLoading(false);
+    } catch (err) {
+      console.error('Error loading clients:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function toggleSelectClient(id: string) {
