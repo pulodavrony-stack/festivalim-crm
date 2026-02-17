@@ -21,7 +21,10 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /opt/festivalim-crm
+            git checkout -- .
+            git clean -fd
             git pull origin main
+            rm -rf .next
             npm install
             npm run build
             systemctl restart festivalim-crm
