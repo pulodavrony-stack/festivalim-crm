@@ -86,6 +86,8 @@ export default function ClientsPage() {
   const [totalStats, setTotalStats] = useState({ all: 0, lead: 0, pk: 0, kb: 0 });
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [selectedTagsForBulk, setSelectedTagsForBulk] = useState<Set<string>>(new Set());
   
   // Reference data
   const [cities, setCities] = useState<City[]>([]);
@@ -358,6 +360,45 @@ export default function ClientsPage() {
     setSelectedClients(new Set());
     loadClients();
     loadReferenceData();
+  }
+
+  async function bulkAssignTags() {
+    if (selectedClients.size === 0 || selectedTagsForBulk.size === 0) return;
+    
+    const clientIds = Array.from(selectedClients);
+    const tagIds = Array.from(selectedTagsForBulk);
+    
+    // Create client_tags entries (ignore duplicates)
+    const entries = clientIds.flatMap(clientId => 
+      tagIds.map(tagId => ({ client_id: clientId, tag_id: tagId }))
+    );
+    
+    await supabase
+      .from('client_tags')
+      .upsert(entries, { onConflict: 'client_id,tag_id', ignoreDuplicates: true });
+
+    setSelectedClients(new Set());
+    setSelectedTagsForBulk(new Set());
+    setShowTagModal(false);
+    loadClients();
+  }
+
+  async function bulkRemoveTags() {
+    if (selectedClients.size === 0 || selectedTagsForBulk.size === 0) return;
+    
+    const clientIds = Array.from(selectedClients);
+    const tagIds = Array.from(selectedTagsForBulk);
+    
+    await supabase
+      .from('client_tags')
+      .delete()
+      .in('client_id', clientIds)
+      .in('tag_id', tagIds);
+
+    setSelectedClients(new Set());
+    setSelectedTagsForBulk(new Set());
+    setShowTagModal(false);
+    loadClients();
   }
 
   function resetFilters() {
@@ -853,6 +894,12 @@ export default function ClientsPage() {
             Назначить менеджера
           </button>
           <button
+            onClick={() => { setSelectedTagsForBulk(new Set()); setShowTagModal(true); }}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Теги
+          </button>
+          <button
             onClick={bulkDeleteClients}
             className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
@@ -891,6 +938,82 @@ export default function ClientsPage() {
             <button
               onClick={() => setShowAssignModal(false)}
               className="mt-4 w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded-lg"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk tag modal */}
+      {showTagModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Управление тегами
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Выбрано контактов: {selectedClients.size}
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Выберите теги
+              </label>
+              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-xl bg-gray-50">
+                {tags.length === 0 ? (
+                  <p className="text-sm text-gray-400">Нет тегов. Создайте в настройках.</p>
+                ) : (
+                  tags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      onClick={() => {
+                        const newSet = new Set(selectedTagsForBulk);
+                        if (newSet.has(tag.id)) {
+                          newSet.delete(tag.id);
+                        } else {
+                          newSet.add(tag.id);
+                        }
+                        setSelectedTagsForBulk(newSet);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                        selectedTagsForBulk.has(tag.id)
+                          ? 'ring-2 ring-offset-1 ring-gray-900'
+                          : ''
+                      }`}
+                      style={{
+                        backgroundColor: tag.color + '20',
+                        color: tag.color,
+                      }}
+                    >
+                      {selectedTagsForBulk.has(tag.id) && '✓ '}
+                      {tag.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={bulkAssignTags}
+                disabled={selectedTagsForBulk.size === 0}
+                className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Добавить теги
+              </button>
+              <button
+                onClick={bulkRemoveTags}
+                disabled={selectedTagsForBulk.size === 0}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Удалить теги
+              </button>
+            </div>
+            
+            <button
+              onClick={() => setShowTagModal(false)}
+              className="mt-3 w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 border rounded-lg"
             >
               Отмена
             </button>

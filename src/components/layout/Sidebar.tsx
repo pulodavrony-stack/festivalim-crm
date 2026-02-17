@@ -29,6 +29,7 @@ const mainNav: NavItem[] = [
 const settingsNav: NavItem[] = [
   { href: '/settings/managers', label: 'Менеджеры', icon: '👤' },
   { href: '/settings/routing', label: 'Распределение', icon: '🎯' },
+  { href: '/settings/tags', label: 'Теги', icon: '🏷️' },
   { href: '/settings/duplicates', label: 'Дубликаты', icon: '🔄' },
   { href: '/settings/transfer', label: 'Перевалка', icon: '👥' },
   { href: '/settings/managers-access', label: 'Права доступа', icon: '🔐' },
