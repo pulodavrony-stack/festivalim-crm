@@ -19,7 +19,7 @@ import { DealCard } from '@/components/pipeline/DealCard';
 import ClientQuickView from '@/components/clients/ClientQuickView';
 import CreateDealModal from '@/components/deals/CreateDealModal';
 import MoveDealModal from '@/components/pipeline/MoveDealModal';
-import MessengerPanel from '@/components/messaging/MessengerPanel';
+import SalesToolsPanel from '@/components/pipeline/SalesToolsPanel';
 import { useToast } from '@/components/ui/Toast';
 
 interface Stage {
@@ -40,6 +40,7 @@ interface Deal {
     full_name: string;
     phone: string;
     client_type: string;
+    city_id?: string;
   };
   event?: {
     id: string;
@@ -69,9 +70,15 @@ interface Show {
   title: string;
 }
 
+interface City {
+  id: string;
+  name: string;
+}
+
 interface Filters {
   manager_id: string;
   show_id: string;
+  city_id: string;
   date_from: string;
   date_to: string;
   search: string;
@@ -87,8 +94,8 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [quickViewClientId, setQuickViewClientId] = useState<string | null>(null);
+  const [selectedClientInfo, setSelectedClientInfo] = useState<{ phone?: string; name?: string } | null>(null);
   const [isCreateDealOpen, setIsCreateDealOpen] = useState(false);
-  const [messengerData, setMessengerData] = useState<{ phone?: string; telegram?: string } | null>(null);
   const [moveDealId, setMoveDealId] = useState<string | null>(null);
   const toast = useToast();
   
@@ -107,9 +114,11 @@ export default function PipelinePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [shows, setShows] = useState<Show[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [filters, setFilters] = useState<Filters>({
     manager_id: '',
     show_id: '',
+    city_id: '',
     date_from: '',
     date_to: '',
     search: '',
@@ -201,12 +210,14 @@ export default function PipelinePage() {
   }, [activePipeline]);
 
   async function loadFilterData() {
-    const [managersResult, showsResult] = await Promise.all([
+    const [managersResult, showsResult, citiesResult] = await Promise.all([
       supabase.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('shows').select('id, title').eq('is_active', true).order('title'),
+      supabase.from('cities').select('id, name').eq('is_active', true).order('name'),
     ]);
     if (managersResult.data) setManagers(managersResult.data);
     if (showsResult.data) setShows(showsResult.data);
+    if (citiesResult.data) setCities(citiesResult.data);
   }
 
   async function loadPipelines() {
@@ -236,7 +247,7 @@ export default function PipelinePage() {
         .from('deals')
         .select(`
           *,
-          client:clients(id, full_name, phone, client_type),
+          client:clients(id, full_name, phone, client_type, city_id),
           event:events(id, event_date, show:shows(id, title))
         `)
         .eq('pipeline_id', activePipeline)
@@ -252,6 +263,7 @@ export default function PipelinePage() {
   const filteredDeals = deals.filter((deal: any) => {
     if (filters.manager_id && deal.manager_id !== filters.manager_id) return false;
     if (filters.show_id && deal.event?.show?.id !== filters.show_id) return false;
+    if (filters.city_id && deal.client?.city_id !== filters.city_id) return false;
     
     if (filters.date_from && deal.event?.event_date) {
       if (new Date(deal.event.event_date) < new Date(filters.date_from)) return false;
@@ -274,11 +286,11 @@ export default function PipelinePage() {
     return true;
   });
 
-  const hasActiveFilters = filters.manager_id || filters.show_id || 
+  const hasActiveFilters = filters.manager_id || filters.show_id || filters.city_id ||
     filters.date_from || filters.date_to || filters.search;
 
   function clearFilters() {
-    setFilters({ manager_id: '', show_id: '', date_from: '', date_to: '', search: '' });
+    setFilters({ manager_id: '', show_id: '', city_id: '', date_from: '', date_to: '', search: '' });
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -461,6 +473,16 @@ export default function PipelinePage() {
               ))}
             </select>
             <select
+              value={filters.city_id}
+              onChange={(e) => setFilters({ ...filters, city_id: e.target.value })}
+              className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+            >
+              <option value="">Все города</option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <select
               value={filters.show_id}
               onChange={(e) => setFilters({ ...filters, show_id: e.target.value })}
               className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-red-500"
@@ -518,7 +540,13 @@ export default function PipelinePage() {
                 stage={stage}
                 deals={getDealsForStage(stage.id)}
                 activeId={activeId}
-                onClientClick={(clientId) => setQuickViewClientId(clientId)}
+                onClientClick={(clientId) => {
+                  setQuickViewClientId(clientId);
+                  const deal = deals.find(d => d.client?.id === clientId);
+                  if (deal?.client) {
+                    setSelectedClientInfo({ phone: deal.client.phone, name: deal.client.full_name });
+                  }
+                }}
                 onMoveToPipeline={(dealId) => setMoveDealId(dealId)}
               />
             ))}
@@ -547,15 +575,21 @@ export default function PipelinePage() {
       <ClientQuickView
         clientId={quickViewClientId || ''}
         isOpen={!!quickViewClientId}
-        onClose={() => setQuickViewClientId(null)}
+        onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
         position="left"
-        onOpenMessenger={(phone, telegram) => setMessengerData({ phone, telegram })}
+        onOpenMessenger={(phone) => {
+          if (phone) {
+            const cleaned = phone.replace(/[^\d]/g, '');
+            window.open(`https://wa.me/${cleaned}`, '_blank');
+          }
+        }}
       />
-      <MessengerPanel
-        clientPhone={messengerData?.phone}
-        clientTelegram={messengerData?.telegram}
-        isOpen={!!messengerData}
-        onClose={() => setMessengerData(null)}
+      <SalesToolsPanel
+        clientId={quickViewClientId}
+        clientPhone={selectedClientInfo?.phone}
+        clientName={selectedClientInfo?.name}
+        isOpen={!!quickViewClientId}
+        onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
       />
       <CreateDealModal
         isOpen={isCreateDealOpen}

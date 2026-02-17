@@ -315,13 +315,16 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                       📞 Звонок
                     </ClickToCall>
                     <button
-                      onClick={() => window.dispatchEvent(new CustomEvent('open-messenger', { detail: { service: 'whatsapp', phone: client.whatsapp_phone || client.phone } }))}
+                      onClick={() => {
+                        const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
+                        if (phone) window.open(`https://wa.me/${phone}`, '_blank');
+                      }}
                       className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                     >
                       💬 WhatsApp
                     </button>
                     <button
-                      onClick={() => window.dispatchEvent(new CustomEvent('open-messenger', { detail: { service: 'max', phone: client.phone } }))}
+                      onClick={() => window.open('https://web.max.ru/', '_blank')}
                       className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                     >
                       💜 MAX
@@ -401,8 +404,8 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Telegram</span>
                         <button 
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-messenger', { detail: { service: 'max', phone: client.phone } }))}
-                          className="text-sm font-medium text-purple-600 hover:underline"
+                          onClick={() => window.open(`https://t.me/${client.telegram_username.replace('@', '')}`, '_blank')}
+                          className="text-sm font-medium text-blue-600 hover:underline"
                         >
                           @{client.telegram_username}
                         </button>

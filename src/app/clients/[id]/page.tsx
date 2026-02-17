@@ -7,6 +7,7 @@ import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { supabase as publicSupabase } from '@/lib/supabase';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
+import ComposeEmailModal from '@/components/email/ComposeEmailModal';
 
 interface Client {
   id: string;
@@ -97,13 +98,73 @@ export default function ClientPage() {
     telegram_username: '', whatsapp_phone: '', notes: ''
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEmailCompose, setShowEmailCompose] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+
+  // Additional contacts
+  interface ClientContactPerson {
+    id: string;
+    client_id: string;
+    full_name: string;
+    position: string;
+    phone: string;
+    email: string;
+    comments: string;
+  }
+  const [additionalContacts, setAdditionalContacts] = useState<ClientContactPerson[]>([]);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [contactForm, setContactForm] = useState({
+    full_name: '', position: '', phone: '', email: '', comments: ''
+  });
 
   useEffect(() => {
     if (params.id && !teamLoading) {
       loadClient();
       loadManagers();
+      loadAdditionalContacts();
     }
   }, [params.id, teamLoading]);
+
+  async function loadAdditionalContacts() {
+    const { data } = await supabase
+      .from('client_contacts')
+      .select('*')
+      .eq('client_id', params.id)
+      .order('created_at');
+    if (data) setAdditionalContacts(data);
+  }
+
+  async function saveAdditionalContact() {
+    if (!contactForm.full_name.trim()) return;
+    if (editingContactId) {
+      await supabase.from('client_contacts').update({
+        full_name: contactForm.full_name,
+        position: contactForm.position || null,
+        phone: contactForm.phone || null,
+        email: contactForm.email || null,
+        comments: contactForm.comments || null,
+      }).eq('id', editingContactId);
+    } else {
+      await supabase.from('client_contacts').insert({
+        client_id: params.id,
+        full_name: contactForm.full_name,
+        position: contactForm.position || null,
+        phone: contactForm.phone || null,
+        email: contactForm.email || null,
+        comments: contactForm.comments || null,
+      });
+    }
+    setIsAddingContact(false);
+    setEditingContactId(null);
+    setContactForm({ full_name: '', position: '', phone: '', email: '', comments: '' });
+    loadAdditionalContacts();
+  }
+
+  async function deleteAdditionalContact(id: string) {
+    await supabase.from('client_contacts').delete().eq('id', id);
+    loadAdditionalContacts();
+  }
 
   async function loadManagers() {
     const { data } = await publicSupabase
@@ -315,10 +376,19 @@ export default function ClientPage() {
                 <span>Звонок</span>
               </ClickToCall>
               <button
-                onClick={() => window.dispatchEvent(new CustomEvent('open-messenger', { detail: { service: 'whatsapp', phone: client.whatsapp_phone || client.phone } }))}
+                onClick={() => {
+                  const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
+                  if (phone) window.open(`https://wa.me/${phone}`, '_blank');
+                }}
                 className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium"
               >
                 💬 WhatsApp
+              </button>
+              <button
+                onClick={() => window.open('https://web.max.ru/', '_blank')}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium"
+              >
+                💜 MAX
               </button>
             </div>
           </div>
@@ -561,13 +631,147 @@ export default function ClientPage() {
                 {client.email && (
                   <div>
                     <label className="text-sm text-gray-500">Email</label>
-                    <a
-                      href={`mailto:${client.email}`}
-                      className="block text-gray-900 hover:text-red-500"
+                    <button
+                      onClick={() => { setEmailTo(client.email); setShowEmailCompose(true); }}
+                      className="block text-gray-900 hover:text-blue-600 text-left"
+                      title="Нажмите чтобы написать письмо"
                     >
-                      {client.email}
-                    </a>
+                      ✉️ {client.email}
+                    </button>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* Additional contacts */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">
+                  Доп. контакты {additionalContacts.length > 0 && <span className="text-sm font-normal text-gray-400">({additionalContacts.length})</span>}
+                </h3>
+                <button
+                  onClick={() => {
+                    setEditingContactId(null);
+                    setContactForm({ full_name: '', position: '', phone: '', email: '', comments: '' });
+                    setIsAddingContact(true);
+                  }}
+                  className="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-medium"
+                >
+                  + Добавить
+                </button>
+              </div>
+
+              {isAddingContact && (
+                <div className="bg-indigo-50 rounded-lg p-3 mb-3 space-y-2">
+                  <input
+                    type="text"
+                    value={contactForm.full_name}
+                    onChange={(e) => setContactForm({ ...contactForm, full_name: e.target.value })}
+                    placeholder="ФИО *"
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:border-indigo-500 outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={contactForm.position}
+                    onChange={(e) => setContactForm({ ...contactForm, position: e.target.value })}
+                    placeholder="Должность"
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:border-indigo-500 outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={contactForm.phone}
+                    onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                    placeholder="Телефон"
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:border-indigo-500 outline-none"
+                  />
+                  <input
+                    type="email"
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                    placeholder="Email"
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:border-indigo-500 outline-none"
+                  />
+                  <textarea
+                    value={contactForm.comments}
+                    onChange={(e) => setContactForm({ ...contactForm, comments: e.target.value })}
+                    placeholder="Комментарий"
+                    rows={2}
+                    className="w-full px-3 py-1.5 border rounded-lg text-sm focus:border-indigo-500 outline-none resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveAdditionalContact}
+                      disabled={!contactForm.full_name.trim()}
+                      className="flex-1 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 text-white py-1.5 rounded-lg text-sm font-medium"
+                    >
+                      Сохранить
+                    </button>
+                    <button
+                      onClick={() => { setIsAddingContact(false); setEditingContactId(null); }}
+                      className="px-3 py-1.5 border text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {additionalContacts.map(c => (
+                  <div key={c.id} className="border rounded-lg p-3 hover:border-indigo-200 transition-colors">
+                    <div className="flex items-start justify-between mb-1">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{c.full_name}</p>
+                        {c.position && <p className="text-xs text-indigo-600">{c.position}</p>}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingContactId(c.id);
+                            setContactForm({
+                              full_name: c.full_name || '',
+                              position: c.position || '',
+                              phone: c.phone || '',
+                              email: c.email || '',
+                              comments: c.comments || '',
+                            });
+                            setIsAddingContact(true);
+                          }}
+                          className="p-1 text-gray-400 hover:text-indigo-500"
+                          title="Редактировать"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteAdditionalContact(c.id)}
+                          className="p-1 text-gray-400 hover:text-red-500"
+                          title="Удалить"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                    {c.phone && (
+                      <button
+                        onClick={() => {
+                          const ph = c.phone.replace(/[^\d]/g, '');
+                          window.open(`https://wa.me/${ph}`, '_blank');
+                        }}
+                        className="text-xs text-gray-600 hover:text-green-600 hover:underline"
+                      >
+                        📞 {c.phone}
+                      </button>
+                    )}
+                    {c.email && (
+                      <a href={`mailto:${c.email}`} className="block text-xs text-gray-600 hover:text-blue-600 hover:underline">
+                        ✉️ {c.email}
+                      </a>
+                    )}
+                    {c.comments && <p className="text-xs text-gray-400 mt-1 italic">{c.comments}</p>}
+                  </div>
+                ))}
+                {additionalContacts.length === 0 && !isAddingContact && (
+                  <p className="text-sm text-gray-400 text-center py-2">Нет доп. контактов</p>
                 )}
               </div>
             </div>
@@ -740,6 +944,14 @@ export default function ClientPage() {
           </div>
         </div>
       )}
+
+      {/* Email compose modal */}
+      <ComposeEmailModal
+        isOpen={showEmailCompose}
+        onClose={() => setShowEmailCompose(false)}
+        toEmail={emailTo}
+        clientName={client.full_name}
+      />
     </div>
   );
 }
