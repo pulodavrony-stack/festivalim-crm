@@ -35,6 +35,17 @@ export default function RootLayout({
     <html lang="ru">
       <head>
         <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('error', function(e) {
+                if (e.message && (e.message.includes('Loading chunk') || e.message.includes('ChunkLoadError'))) {
+                  window.location.reload();
+                }
+              });
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <AuthProvider>
