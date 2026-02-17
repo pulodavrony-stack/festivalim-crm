@@ -587,7 +587,7 @@ function PipelinePage() {
         onOpenMessenger={(phone) => {
           if (phone) {
             const cleaned = phone.replace(/[^\d]/g, '');
-            window.open(`https://wa.me/${cleaned}`, '_blank');
+            window.open(`https://web.whatsapp.com/send?phone=${cleaned}`, '_blank');
           }
         }}
       />

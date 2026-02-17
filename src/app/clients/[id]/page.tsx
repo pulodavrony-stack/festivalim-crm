@@ -375,7 +375,7 @@ export default function ClientPage() {
               <button
                 onClick={() => {
                   const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
-                  if (phone) window.open(`https://wa.me/${phone}`, '_blank');
+                  if (phone) window.open(`https://web.whatsapp.com/send?phone=${phone}`, '_blank');
                 }}
                 className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium"
               >
@@ -755,7 +755,7 @@ export default function ClientPage() {
                       <button
                         onClick={() => {
                           const ph = c.phone.replace(/[^\d]/g, '');
-                          window.open(`https://wa.me/${ph}`, '_blank');
+                          window.open(`https://web.whatsapp.com/send?phone=${ph}`, '_blank');
                         }}
                         className="text-xs text-gray-600 hover:text-green-600 hover:underline"
                       >

@@ -313,7 +313,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                     <button
                       onClick={() => {
                         const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
-                        if (phone) window.open(`https://wa.me/${phone}`, '_blank');
+                        if (phone) window.open(`https://web.whatsapp.com/send?phone=${phone}`, '_blank');
                       }}
                       className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                     >

@@ -220,8 +220,8 @@ export default function SalesToolsPanel({
     const phone = (clientPhone || '').replace(/[^\d]/g, '');
     const text = customMessage || messageTemplate;
     const url = text
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/${phone}`;
+      ? `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`
+      : `https://web.whatsapp.com/send?phone=${phone}`;
     window.open(url, '_blank');
   }
 
@@ -229,8 +229,8 @@ export default function SalesToolsPanel({
     const cleaned = (phone || '').replace(/[^\d]/g, '');
     const text = customMessage || messageTemplate;
     const url = text
-      ? `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/${cleaned}`;
+      ? `https://web.whatsapp.com/send?phone=${cleaned}&text=${encodeURIComponent(text)}`
+      : `https://web.whatsapp.com/send?phone=${cleaned}`;
     window.open(url, '_blank');
   }
 
