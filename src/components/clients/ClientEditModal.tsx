@@ -233,7 +233,7 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[70] overflow-y-auto">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
 
