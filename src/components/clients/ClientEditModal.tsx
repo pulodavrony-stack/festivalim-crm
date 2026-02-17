@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient } from '@/components/providers/TeamProvider';
 
 interface Client {
   id: string;
@@ -51,6 +51,7 @@ interface ClientEditModalProps {
 }
 
 export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: ClientEditModalProps) {
+  const supabase = useSchemaClient();
   const [client, setClient] = useState<Client | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [sources, setSources] = useState<Source[]>([]);

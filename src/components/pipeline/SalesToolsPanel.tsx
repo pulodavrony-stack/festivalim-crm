@@ -210,7 +210,7 @@ export default function SalesToolsPanel({
   ];
 
   return (
-    <div className="fixed inset-y-0 right-0 z-[51] w-full max-w-[420px] bg-white shadow-2xl flex flex-col border-l border-gray-200">
+    <div className="fixed inset-y-0 right-0 z-[51] bg-white shadow-2xl flex flex-col border-l border-gray-200" style={{ width: 'calc(100vw - 470px)', minWidth: '400px' }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">

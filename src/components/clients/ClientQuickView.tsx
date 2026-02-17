@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient } from '@/components/providers/TeamProvider';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 import ClientEditModal from './ClientEditModal';
@@ -37,6 +37,7 @@ interface Deal {
   title: string;
   amount: number;
   status: string;
+  created_at?: string;
   stage?: { name: string; color: string };
   event?: {
     id: string;
@@ -108,6 +109,7 @@ const clientTypeLabels = {
 };
 
 export default function ClientQuickView({ clientId, isOpen, onClose, position = 'right', onOpenMessenger }: ClientQuickViewProps) {
+  const supabase = useSchemaClient();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -131,14 +133,13 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   async function loadClient() {
     setLoading(true);
     
-    const [clientResult, activitiesResult, dealsResult, tagsResult, pitchesResult, eventsResult, remindersResult] = await Promise.all([
+    // Core queries that always exist in team schemas
+    const [clientResult, activitiesResult, dealsResult] = await Promise.all([
       supabase
         .from('clients')
         .select(`
           *,
-          city:cities(name),
-          source:lead_sources(name),
-          manager:managers(full_name)
+          city:cities(name)
         `)
         .eq('id', clientId)
         .single(),
@@ -147,44 +148,57 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
         .select('*')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(15),
       supabase
         .from('deals')
         .select(`
           *,
-          stage:pipeline_stages(name, color),
-          event:events(id, event_date, venue_name, show:shows(title), city:cities(name))
+          stage:pipeline_stages(name, color)
         `)
         .eq('client_id', clientId)
         .order('created_at', { ascending: false }),
-      supabase
-        .from('client_tags')
-        .select('tag:tags(*)')
-        .eq('client_id', clientId),
-      supabase
-        .from('client_pitches')
-        .select('*, event:events(id, event_date, venue_name, status, show:shows(title), city:cities(name))')
-        .eq('client_id', clientId),
-      supabase
-        .from('events')
-        .select('id, event_date, venue_name, status, show:shows(title), city:cities(name)')
-        .gte('event_date', new Date().toISOString().split('T')[0])
-        .in('status', ['planned', 'on_sale'])
-        .order('event_date'),
-      supabase
-        .from('reminders')
-        .select('*, event:events(id, event_date, venue_name, status, show:shows(title), city:cities(name))')
-        .eq('client_id', clientId)
-        .order('remind_at'),
     ]);
 
     if (clientResult.data) setClient(clientResult.data);
     if (activitiesResult.data) setActivities(activitiesResult.data);
     if (dealsResult.data) setDeals(dealsResult.data);
-    if (tagsResult.data) setTags(tagsResult.data.map((t: any) => t.tag).filter(Boolean));
-    if (pitchesResult.data) setPitches(pitchesResult.data);
-    if (eventsResult.data) setAvailableEvents(eventsResult.data);
-    if (remindersResult.data) setReminders(remindersResult.data);
+    
+    // Optional queries (may not exist in all schemas)
+    try {
+      const { data: tagsData } = await supabase
+        .from('client_tags')
+        .select('tag:tags(*)')
+        .eq('client_id', clientId);
+      if (tagsData) setTags(tagsData.map((t: any) => t.tag).filter(Boolean));
+    } catch { setTags([]); }
+
+    try {
+      const { data: pitchesData } = await supabase
+        .from('client_pitches')
+        .select('*, event:events(id, event_date, venue_name, status, show:shows(title), city:cities(name))')
+        .eq('client_id', clientId);
+      if (pitchesData) setPitches(pitchesData);
+    } catch { setPitches([]); }
+
+    try {
+      const { data: eventsData } = await supabase
+        .from('events')
+        .select('id, event_date, venue_name, status, show:shows(title), city:cities(name)')
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .in('status', ['planned', 'on_sale'])
+        .order('event_date');
+      if (eventsData) setAvailableEvents(eventsData);
+    } catch { setAvailableEvents([]); }
+
+    try {
+      const { data: remindersData } = await supabase
+        .from('reminders')
+        .select('*, event:events(id, event_date, venue_name, status, show:shows(title), city:cities(name))')
+        .eq('client_id', clientId)
+        .order('remind_at');
+      if (remindersData) setReminders(remindersData);
+    } catch { setReminders([]); }
+
     setLoading(false);
   }
 
@@ -347,7 +361,59 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-red-500"></div>
                 </div>
               ) : client ? (
-                <div className="p-6 space-y-6">
+                <div className="p-5 space-y-5">
+                  {/* B2B Organization Info (parsed from notes) */}
+                  {client.notes && (() => {
+                    const lines = client.notes.split('\n').filter(Boolean);
+                    const orgLine = lines.find(l => l.startsWith('🏫'));
+                    const addressLine = lines.find(l => l.startsWith('📍'));
+                    const websiteLine = lines.find(l => l.startsWith('🌐'));
+                    const allPhonesLine = lines.find(l => l.startsWith('📞'));
+                    const allEmailsLine = lines.find(l => l.startsWith('📧'));
+                    const noteLine = lines.find(l => l.startsWith('📝'));
+                    const hasOrgInfo = orgLine || addressLine;
+                    
+                    return hasOrgInfo ? (
+                      <div className="bg-indigo-50 rounded-xl p-4 space-y-2">
+                        {orgLine && (
+                          <p className="text-sm font-bold text-indigo-900">{orgLine.replace('🏫 ', '')}</p>
+                        )}
+                        {addressLine && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs">📍</span>
+                            <p className="text-xs text-gray-700">{addressLine.replace('📍 ', '')}</p>
+                          </div>
+                        )}
+                        {websiteLine && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs">🌐</span>
+                            <a href={websiteLine.replace('🌐 ', '').startsWith('http') ? websiteLine.replace('🌐 ', '') : `https://${websiteLine.replace('🌐 ', '')}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline break-all">
+                              {websiteLine.replace('🌐 ', '')}
+                            </a>
+                          </div>
+                        )}
+                        {allPhonesLine && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs">📞</span>
+                            <p className="text-xs text-gray-600 break-all">{allPhonesLine.replace('📞 Все телефоны: ', '').replace('📞 ', '')}</p>
+                          </div>
+                        )}
+                        {allEmailsLine && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs">📧</span>
+                            <p className="text-xs text-gray-600 break-all">{allEmailsLine.replace('📧 Все email: ', '').replace('📧 ', '')}</p>
+                          </div>
+                        )}
+                        {noteLine && (
+                          <div className="flex items-start gap-2 pt-1 border-t border-indigo-100">
+                            <span className="text-xs">📝</span>
+                            <p className="text-xs text-gray-600">{noteLine.replace('📝 ', '')}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
+
                   {/* Stats */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-gray-50 rounded-xl p-3 text-center">
@@ -390,14 +456,17 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
 
                   {/* Contact info */}
                   <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">Телефон</span>
-                      <ClickToCall phoneNumber={client.phone} className="text-sm font-medium" />
-                    </div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Контактные данные</h3>
+                    {client.phone && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">Телефон</span>
+                        <ClickToCall phoneNumber={client.phone} className="text-sm font-medium" />
+                      </div>
+                    )}
                     {client.email && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Email</span>
-                        <span className="text-sm font-medium text-gray-900">{client.email}</span>
+                        <a href={`mailto:${client.email}`} className="text-sm font-medium text-blue-600 hover:underline truncate ml-4 max-w-[200px]">{client.email}</a>
                       </div>
                     )}
                     {client.telegram_username && (
@@ -411,12 +480,16 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                         </button>
                       </div>
                     )}
-                    {client.city?.name && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">Город</span>
-                        <span className="text-sm font-medium text-gray-900">{client.city.name}</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const cityData = client.city;
+                      const cityName = Array.isArray(cityData) ? cityData[0]?.name : (cityData as any)?.name;
+                      return cityName ? (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">Город</span>
+                          <span className="text-sm font-medium text-gray-900">{cityName}</span>
+                        </div>
+                      ) : null;
+                    })()}
                     {client.source?.name && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Источник</span>
@@ -425,137 +498,61 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                     )}
                   </div>
 
-                  {/* История спектаклей - полный список */}
+                  {/* Сделки */}
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                      Спектакли клиента
-                      {deals.filter(d => d.event).length > 0 && (
+                      Сделки
+                      {deals.length > 0 && (
                         <span className="ml-2 text-xs font-normal text-gray-500">
-                          ({deals.filter(d => d.event).length})
+                          ({deals.length})
                         </span>
                       )}
                     </h3>
-                    {deals.filter(d => d.event).length > 0 ? (
+                    {deals.length > 0 ? (
                       <div className="space-y-2">
-                        {/* Предстоящие */}
-                        {deals.filter(d => d.event && new Date(d.event.event_date) >= new Date()).length > 0 && (
-                          <div className="mb-3">
-                            <p className="text-xs text-gray-500 mb-1.5">Предстоящие</p>
-                            {deals
-                              .filter(d => d.event && new Date(d.event.event_date) >= new Date())
-                              .sort((a, b) => new Date(a.event!.event_date).getTime() - new Date(b.event!.event_date).getTime())
-                              .map((deal) => (
-                                <div key={deal.id} className="bg-green-50 border border-green-100 rounded-lg p-3 mb-2">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <p className="text-sm font-medium text-gray-900">
-                                        {deal.event?.show?.title || 'Спектакль'}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {deal.event?.city?.name} • {deal.event?.venue_name}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-sm font-semibold text-gray-900">
-                                        {new Date(deal.event!.event_date).toLocaleDateString('ru-RU', {
-                                          day: 'numeric',
-                                          month: 'short',
-                                        })}
-                                      </p>
-                                      <p className="text-xs text-green-600 font-medium">
-                                        {(deal.amount || 0).toLocaleString('ru-RU')} ₽
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
+                        {deals.map((deal) => (
+                          <div key={deal.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-100">
+                            <div className="flex items-center gap-2.5">
+                              {deal.stage && (
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: deal.stage.color }}
+                                />
+                              )}
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{deal.title || deal.stage?.name || 'Сделка'}</p>
+                                {deal.stage && (
+                                  <p className="text-xs text-gray-500">{deal.stage.name}</p>
+                                )}
+                                {deal.event && (
+                                  <p className="text-xs text-gray-500">
+                                    {deal.event?.show?.title} • {new Date(deal.event.event_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm font-semibold text-green-600">
+                                {(deal.amount || 0).toLocaleString('ru-RU')} ₽
+                              </span>
+                              <p className="text-xs text-gray-400">
+                                {new Date(deal.created_at || '').toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                              </p>
+                            </div>
                           </div>
-                        )}
-                        {/* Прошедшие */}
-                        {deals.filter(d => d.event && new Date(d.event.event_date) < new Date()).length > 0 && (
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1.5">Прошедшие</p>
-                            {deals
-                              .filter(d => d.event && new Date(d.event.event_date) < new Date())
-                              .sort((a, b) => new Date(b.event!.event_date).getTime() - new Date(a.event!.event_date).getTime())
-                              .map((deal) => (
-                                <div key={deal.id} className="bg-gray-50 rounded-lg p-3 mb-2">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <p className="text-sm font-medium text-gray-700">
-                                        {deal.event?.show?.title || 'Спектакль'}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {deal.event?.city?.name}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-sm text-gray-600">
-                                        {new Date(deal.event!.event_date).toLocaleDateString('ru-RU', {
-                                          day: 'numeric',
-                                          month: 'short',
-                                          year: 'numeric',
-                                        })}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {(deal.amount || 0).toLocaleString('ru-RU')} ₽
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
+                        ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500 text-center py-2">Нет посещённых спектаклей</p>
+                      <p className="text-sm text-gray-500 text-center py-2">Нет сделок</p>
                     )}
                   </div>
 
-                  {/* Пичинг - на какие спектакли предлагали */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        Пичил на спектакли
-                        {pitches.length > 0 && (
-                          <span className="ml-2 text-xs font-normal text-gray-500">({pitches.length})</span>
-                        )}
+                  {/* Events-only sections (show for B2C with events) */}
+                  {pitches.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                        Пичил на спектакли ({pitches.length})
                       </h3>
-                      <button
-                        onClick={() => setShowPitchSelector(!showPitchSelector)}
-                        className="text-xs text-red-500 hover:text-red-600 font-medium"
-                      >
-                        + Добавить
-                      </button>
-                    </div>
-                    
-                    {showPitchSelector && (
-                      <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-500 mb-2">Выберите спектакль:</p>
-                        <div className="max-h-32 overflow-y-auto space-y-1">
-                          {availableEvents
-                            .filter(e => !pitches.some(p => p.event_id === e.id))
-                            .map((event) => (
-                              <button
-                                key={event.id}
-                                onClick={() => addPitch(event.id)}
-                                className="w-full text-left px-2 py-1.5 rounded hover:bg-gray-100 text-sm"
-                              >
-                                <span className="font-medium">{event.show?.title}</span>
-                                <span className="text-gray-500"> • {event.city?.name} • </span>
-                                <span className="text-gray-500">
-                                  {new Date(event.event_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                                </span>
-                              </button>
-                            ))}
-                          {availableEvents.filter(e => !pitches.some(p => p.event_id === e.id)).length === 0 && (
-                            <p className="text-xs text-gray-400 text-center py-2">Нет доступных спектаклей</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {pitches.length > 0 ? (
                       <div className="space-y-1.5">
                         {pitches.map((pitch) => (
                           <div key={pitch.id} className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -578,153 +575,49 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 text-center py-2">Не пичил ни на один спектакль</p>
-                    )}
-                  </div>
-
-                  {/* Напоминания */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-gray-900">
-                        Напоминания
-                        {reminders.filter(r => r.status === 'pending').length > 0 && (
-                          <span className="ml-2 text-xs font-normal text-gray-500">
-                            ({reminders.filter(r => r.status === 'pending').length})
-                          </span>
-                        )}
-                      </h3>
-                      <button
-                        onClick={() => setShowReminderForm(!showReminderForm)}
-                        className="text-xs text-red-500 hover:text-red-600 font-medium"
-                      >
-                        + Создать
-                      </button>
                     </div>
+                  )}
 
-                    {showReminderForm && (
-                      <div className="mb-3 p-3 bg-gray-50 rounded-lg space-y-2">
-                        <select
-                          value={newReminder.event_id}
-                          onChange={(e) => setNewReminder({ ...newReminder, event_id: e.target.value })}
-                          className="w-full px-2 py-1.5 border rounded text-sm focus:border-red-500 outline-none"
-                        >
-                          <option value="">Выберите спектакль...</option>
-                          {availableEvents.map((event) => (
-                            <option key={event.id} value={event.id}>
-                              {event.show?.title} • {event.city?.name} • {new Date(event.event_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="flex gap-2">
-                          <select
-                            value={newReminder.days_before}
-                            onChange={(e) => setNewReminder({ ...newReminder, days_before: e.target.value })}
-                            className="flex-1 px-2 py-1.5 border rounded text-sm focus:border-red-500 outline-none"
-                          >
-                            <option value="1">За 1 день</option>
-                            <option value="3">За 3 дня</option>
-                            <option value="7">За неделю</option>
-                            <option value="14">За 2 недели</option>
-                          </select>
-                          <select
-                            value={newReminder.channel}
-                            onChange={(e) => setNewReminder({ ...newReminder, channel: e.target.value })}
-                            className="flex-1 px-2 py-1.5 border rounded text-sm focus:border-red-500 outline-none"
-                          >
-                            <option value="whatsapp">WhatsApp</option>
-                            <option value="telegram">Telegram</option>
-                            <option value="sms">SMS</option>
-                          </select>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={createReminder}
-                            disabled={!newReminder.event_id}
-                            className="flex-1 px-3 py-1.5 bg-green-500 text-white rounded text-sm font-medium disabled:opacity-50"
-                          >
-                            Создать
-                          </button>
-                          <button
-                            onClick={() => setShowReminderForm(false)}
-                            className="px-3 py-1.5 text-gray-500 text-sm"
-                          >
-                            Отмена
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {reminders.length > 0 ? (
+                  {reminders.filter(r => r.status === 'pending').length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                        Напоминания ({reminders.filter(r => r.status === 'pending').length})
+                      </h3>
                       <div className="space-y-1.5">
-                        {reminders.map((reminder) => (
-                          <div 
-                            key={reminder.id} 
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 ${
-                              reminder.status === 'pending' 
-                                ? 'bg-blue-50 border border-blue-100' 
-                                : reminder.status === 'sent'
-                                ? 'bg-green-50 border border-green-100'
-                                : 'bg-gray-50 border border-gray-100 opacity-50'
-                            }`}
-                          >
+                        {reminders.filter(r => r.status === 'pending').map((reminder) => (
+                          <div key={reminder.id} className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
                             <div>
                               <p className="text-sm font-medium text-gray-900">
-                                {reminder.event?.show?.title || 'Спектакль'}
+                                {reminder.event?.show?.title || 'Напоминание'}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {new Date(reminder.remind_at).toLocaleDateString('ru-RU', { 
-                                  day: 'numeric', 
-                                  month: 'short',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
+                                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                                 })}
                                 {' • '}
                                 {reminder.channel === 'whatsapp' ? 'WhatsApp' : reminder.channel === 'telegram' ? 'Telegram' : 'SMS'}
-                                {reminder.status === 'sent' && ' ✓'}
                               </p>
                             </div>
-                            {reminder.status === 'pending' && (
-                              <button
-                                onClick={() => cancelReminder(reminder.id)}
-                                className="text-gray-400 hover:text-red-500"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
+                            <button
+                              onClick={() => cancelReminder(reminder.id)}
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 text-center py-2">Нет напоминаний</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* Deals (сделки без привязки к спектаклю) */}
-                  {deals.filter(d => !d.event).length > 0 && (
+                  {/* Raw notes (if not B2B emoji format) */}
+                  {client.notes && !client.notes.startsWith('🏫') && (
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Другие сделки</h3>
-                      <div className="space-y-2">
-                        {deals.filter(d => !d.event).map((deal) => (
-                          <div key={deal.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-center gap-2">
-                              {deal.stage && (
-                                <span
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: deal.stage.color }}
-                                />
-                              )}
-                              <span className="text-sm text-gray-900">
-                                {deal.stage?.name || 'Сделка'}
-                              </span>
-                            </div>
-                            <span className="text-sm font-semibold text-green-600">
-                              {(deal.amount || 0).toLocaleString('ru-RU')} ₽
-                            </span>
-                          </div>
-                        ))}
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">Заметки</h3>
+                      <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3">
+                        <p className="text-sm text-gray-700 whitespace-pre-line">{client.notes}</p>
                       </div>
                     </div>
                   )}
