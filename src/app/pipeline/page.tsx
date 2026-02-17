@@ -87,7 +87,7 @@ interface Filters {
 
 function PipelinePage() {
   const supabase = useSchemaClient();
-  const { teamSchema, isLoading: teamLoading } = useTeam();
+  const { teamSchema, isLoading: teamLoading, managerId: currentManagerId, isAdmin } = useTeam();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [activePipeline, setActivePipeline] = useState<string>('');
   const [stages, setStages] = useState<Stage[]>([]);
@@ -196,6 +196,13 @@ function PipelinePage() {
       return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
     }
   }, [isDraggingScroll, handleScrollMouseUp]);
+
+  // Auto-filter by current manager for non-admin users
+  useEffect(() => {
+    if (!teamLoading && currentManagerId && !isAdmin) {
+      setFilters(prev => ({ ...prev, manager_id: currentManagerId }));
+    }
+  }, [teamLoading, currentManagerId, isAdmin]);
 
   useEffect(() => {
     if (!teamLoading) {
@@ -468,8 +475,9 @@ function PipelinePage() {
               value={filters.manager_id}
               onChange={(e) => setFilters({ ...filters, manager_id: e.target.value })}
               className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+              disabled={!isAdmin}
             >
-              <option value="">Все менеджеры</option>
+              {isAdmin && <option value="">Все менеджеры</option>}
               {managers.map((m) => (
                 <option key={m.id} value={m.id}>{m.full_name}</option>
               ))}

@@ -14,6 +14,9 @@ const TeamCtx = createContext<TeamContext>({
   canSwitchTeams: false,
   allTeams: [],
   switchTeam: () => {},
+  managerId: null,
+  managerRole: null,
+  isAdmin: false,
 });
 
 interface TeamProviderProps {
@@ -26,6 +29,8 @@ export function TeamProvider({ children }: TeamProviderProps) {
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [canSwitchTeams, setCanSwitchTeams] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [managerId, setManagerId] = useState<string | null>(null);
+  const [managerRole, setManagerRole] = useState<string | null>(null);
   
   // Загрузка команды менеджера
   useEffect(() => {
@@ -45,8 +50,6 @@ export function TeamProvider({ children }: TeamProviderProps) {
           .eq('auth_user_id', user.id)
           .single();
         
-        // Manager loaded successfully
-        
         if (managerError || !manager) {
           console.error('Manager not found:', managerError);
           // Загружаем все команды и берём первую
@@ -63,6 +66,10 @@ export function TeamProvider({ children }: TeamProviderProps) {
           setIsLoading(false);
           return;
         }
+        
+        // Save manager info
+        setManagerId(manager.id);
+        setManagerRole(manager.role);
         
         // Если может переключаться между командами (admin или can_switch_teams)
         const canSwitch = manager.can_switch_teams || manager.role === 'admin';
@@ -141,6 +148,8 @@ export function TeamProvider({ children }: TeamProviderProps) {
     }
   }, [user]);
   
+  const isAdmin = managerRole === 'admin' || managerRole === 'super_admin' || canSwitchTeams;
+  
   const value: TeamContext = useMemo(() => ({
     team,
     teamId: team?.id || null,
@@ -149,7 +158,10 @@ export function TeamProvider({ children }: TeamProviderProps) {
     canSwitchTeams,
     allTeams,
     switchTeam,
-  }), [team, isLoading, canSwitchTeams, allTeams, switchTeam]);
+    managerId,
+    managerRole,
+    isAdmin,
+  }), [team, isLoading, canSwitchTeams, allTeams, switchTeam, managerId, managerRole, isAdmin]);
   
   return (
     <TeamCtx.Provider value={value}>

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean:dev": "rm -rf .next node_modules/.cache",
+    "dev:clean": "npm run clean:dev && next dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

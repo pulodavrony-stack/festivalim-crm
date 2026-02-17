@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
@@ -14,7 +14,7 @@ interface Client {
   status: string;
   city?: { name: string };
   source?: { name: string };
-  manager?: { full_name: string };
+  manager_id?: string;
   total_purchases: number;
   total_revenue: number;
   last_contact_date: string;
@@ -78,7 +78,7 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 
 export default function ClientsPage() {
   const supabase = useSchemaClient();
-  const { teamSchema, isLoading: teamLoading } = useTeam();
+  const { teamSchema, isLoading: teamLoading, managerId: currentManagerId, isAdmin } = useTeam();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -107,6 +107,13 @@ export default function ClientsPage() {
     sort_order: 'desc',
     filter_logic: 'and',
   });
+
+  // Auto-filter by current manager for non-admin users
+  useEffect(() => {
+    if (!teamLoading && currentManagerId && !isAdmin) {
+      setFilters(prev => ({ ...prev, manager_id: currentManagerId }));
+    }
+  }, [teamLoading, currentManagerId, isAdmin]);
 
   useEffect(() => {
     if (!teamLoading) {
@@ -316,6 +323,13 @@ export default function ClientsPage() {
     });
   }
 
+  // Build managers map for quick lookup
+  const managersMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    managers.forEach(m => { map[m.id] = m.full_name; });
+    return map;
+  }, [managers]);
+
   const filteredClients = clients.filter((c) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
@@ -515,12 +529,16 @@ export default function ClientsPage() {
                   value={filters.manager_id}
                   onChange={(e) => setFilters({ ...filters, manager_id: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-sm focus:border-red-500 outline-none"
+                  disabled={!isAdmin}
                 >
-                  <option value="">Все менеджеры</option>
+                  {isAdmin && <option value="">Все менеджеры</option>}
                   {managers.map((m) => (
                     <option key={m.id} value={m.id}>{m.full_name}</option>
                   ))}
                 </select>
+                {!isAdmin && (
+                  <p className="text-xs text-gray-400 mt-1">Показаны только ваши контакты</p>
+                )}
               </div>
               
               {/* Sort */}
@@ -667,6 +685,9 @@ export default function ClientsPage() {
                     Источник
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Менеджер
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Покупки
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -741,6 +762,16 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-500">
                       {(Array.isArray(client.source) ? client.source[0]?.name : client.source?.name) || '—'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-600">
+                      {client.manager_id ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                          {managersMap[client.manager_id] || '—'}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Не назначен</span>
+                      )}
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-900">
                       {client.total_purchases || 0}

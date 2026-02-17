@@ -58,6 +58,9 @@ export interface TeamContext {
   canSwitchTeams: boolean;
   allTeams: Team[];
   switchTeam: (teamId: string) => void;
+  managerId: string | null;
+  managerRole: string | null;
+  isAdmin: boolean;
 }
 
 export const DEFAULT_SCHEMA = 'atlant';
