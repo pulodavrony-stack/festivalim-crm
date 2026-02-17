@@ -33,7 +33,7 @@ interface DealCardProps {
 }
 
 const clientTypeBadges: Record<string, { label: string; dot: string }> = {
-  lead: { label: 'B2B', dot: 'bg-blue-500' },
+  lead: { label: 'Лид', dot: 'bg-blue-500' },
   pk: { label: 'ПК', dot: 'bg-purple-500' },
   kb: { label: 'КБ', dot: 'bg-green-500' },
 };

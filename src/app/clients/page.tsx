@@ -61,7 +61,7 @@ interface Filters {
 }
 
 const clientTypeLabels = {
-  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'ПК', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'КБ', color: 'bg-green-100 text-green-700' },
 };
@@ -449,7 +449,7 @@ export default function ClientsPage() {
             }`}
           >
             <div className="text-2xl font-bold">{stats.lead}</div>
-            <div className="text-sm opacity-70">B2B</div>
+            <div className="text-sm opacity-70">Лиды</div>
           </button>
           <button
             onClick={() => setFilters({ ...filters, client_type: 'pk' })}

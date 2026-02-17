@@ -39,7 +39,7 @@ const channelIcons: Record<string, { icon: string; color: string; name: string }
 };
 
 const clientTypeBadge: Record<string, { label: string; color: string }> = {
-  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'ПК', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'КБ', color: 'bg-green-100 text-green-700' },
 };

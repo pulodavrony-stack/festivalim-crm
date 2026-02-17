@@ -503,7 +503,7 @@ export default function AnalyticsPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                       <div className="text-3xl font-bold text-blue-600">{stats.leads}</div>
-                      <div className="text-sm text-gray-500">B2B</div>
+                      <div className="text-sm text-gray-500">Лиды</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
                       <div className="text-3xl font-bold text-purple-600">{stats.pk}</div>

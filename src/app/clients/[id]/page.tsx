@@ -75,7 +75,7 @@ const activityIcons: Record<string, string> = {
 };
 
 const clientTypeLabels = {
-  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'Потенциальный клиент', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'Клиентская база', color: 'bg-green-100 text-green-700' },
 };

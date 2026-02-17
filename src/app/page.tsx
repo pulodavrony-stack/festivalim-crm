@@ -135,7 +135,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">{stats.leads}</div>
-                <div className="text-xs text-gray-500 mt-1">B2B</div>
+                <div className="text-xs text-gray-500 mt-1">Лиды</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">{stats.pk}</div>

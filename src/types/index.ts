@@ -15,7 +15,7 @@ export type Branch = 'atlant' | 'etazhi';
 // Типы клиентов (ключевое!)
 export type ClientType = 'lead' | 'pk' | 'kb';
 export const ClientTypeLabels: Record<ClientType, string> = {
-  lead: 'B2B',
+  lead: 'Лид',
   pk: 'ПК',
   kb: 'КБ',
 };

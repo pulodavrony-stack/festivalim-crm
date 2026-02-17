@@ -191,7 +191,7 @@ export default function NewClientPage() {
               </label>
               <div className="flex space-x-4">
                 {[
-                  { value: 'lead', label: 'B2B', color: 'bg-blue-500' },
+                  { value: 'lead', label: 'Лид', color: 'bg-blue-500' },
                   { value: 'pk', label: 'ПК', color: 'bg-purple-500' },
                   { value: 'kb', label: 'КБ', color: 'bg-green-500' },
                 ].map((type) => (

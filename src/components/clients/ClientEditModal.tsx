@@ -318,7 +318,7 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
                       onChange={(e) => setFormData({ ...formData, client_type: e.target.value as any })}
                       className="w-full px-4 py-2 border rounded-lg focus:border-red-500 outline-none"
                     >
-                      <option value="lead">B2B</option>
+                      <option value="lead">Лид</option>
                       <option value="pk">Потенциальный клиент</option>
                       <option value="kb">Клиентская база</option>
                     </select>
