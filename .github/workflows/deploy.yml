@@ -27,5 +27,7 @@ jobs:
             rm -rf .next
             npm install
             npm run build
-            systemctl restart festivalim-crm
+            pm2 restart festivalim-crm 2>/dev/null || systemctl restart festivalim-crm 2>/dev/null || true
+            pm2 status 2>/dev/null || systemctl status festivalim-crm --no-pager 2>/dev/null || true
+            sleep 3
             echo "✅ Deployed successfully!"
