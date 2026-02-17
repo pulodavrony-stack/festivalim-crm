@@ -28,9 +28,20 @@ jobs:
             npm install
             npm run build
             pm2 delete festivalim-crm 2>/dev/null || true
+            pm2 flush 2>/dev/null || true
             pm2 start npm --name festivalim-crm -- start 2>/dev/null || systemctl restart festivalim-crm 2>/dev/null || true
             nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
-            sleep 5
+            sleep 8
             pm2 status 2>/dev/null || true
-            curl -s http://localhost:3000/ -o /dev/null -w "Local status: %{http_code}\n" 2>/dev/null || true
-            echo "✅ Deployed successfully!"
+            echo "=== PM2 ERROR LOGS ==="
+            pm2 logs festivalim-crm --err --nostream --lines 30 2>/dev/null || cat ~/.pm2/logs/festivalim-crm-error.log 2>/dev/null | tail -30 || echo "No error logs"
+            echo "=== PM2 OUT LOGS ==="
+            pm2 logs festivalim-crm --out --nostream --lines 10 2>/dev/null || cat ~/.pm2/logs/festivalim-crm-out.log 2>/dev/null | tail -10 || echo "No out logs"
+            echo "=== CSS CHECK ==="
+            curl -s http://localhost:3000/login -o /dev/null -w "Login: %{http_code}\n" 2>/dev/null || true
+            CSS_FILE=$(curl -s http://localhost:3000/login 2>/dev/null | grep -oE '_next/static/css/[^"]+' | head -1)
+            if [ -n "$CSS_FILE" ]; then
+              curl -s "http://localhost:3000/$CSS_FILE" -o /dev/null -w "CSS: %{http_code}\n" 2>/dev/null || true
+              ls -la "/opt/festivalim-crm/.next/static/css/" 2>/dev/null || echo "No .next/static/css dir"
+            fi
+            echo "✅ Deploy done"
