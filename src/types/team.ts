@@ -61,6 +61,7 @@ export interface TeamContext {
   managerId: string | null;
   managerRole: string | null;
   isAdmin: boolean;
+  isSuperAdmin: boolean; // Can see/edit ALL teams (admin role or canSwitchTeams)
 }
 
 export const DEFAULT_SCHEMA = 'atlant';

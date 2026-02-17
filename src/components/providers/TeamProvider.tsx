@@ -17,6 +17,7 @@ const TeamCtx = createContext<TeamContext>({
   managerId: null,
   managerRole: null,
   isAdmin: false,
+  isSuperAdmin: false,
 });
 
 interface TeamProviderProps {
@@ -148,7 +149,11 @@ export function TeamProvider({ children }: TeamProviderProps) {
     }
   }, [user]);
   
+  // isAdmin: can manage their team's data (team_admin, admin, super_admin)
   const isAdmin = managerRole === 'admin' || managerRole === 'super_admin' || managerRole === 'team_admin' || canSwitchTeams;
+  
+  // isSuperAdmin: can see/edit ALL teams (global admin, not team_admin)
+  const isSuperAdmin = managerRole === 'admin' || managerRole === 'super_admin' || canSwitchTeams;
   
   const value: TeamContext = useMemo(() => ({
     team,
@@ -161,7 +166,8 @@ export function TeamProvider({ children }: TeamProviderProps) {
     managerId,
     managerRole,
     isAdmin,
-  }), [team, isLoading, canSwitchTeams, allTeams, switchTeam, managerId, managerRole, isAdmin]);
+    isSuperAdmin,
+  }), [team, isLoading, canSwitchTeams, allTeams, switchTeam, managerId, managerRole, isAdmin, isSuperAdmin]);
   
   return (
     <TeamCtx.Provider value={value}>

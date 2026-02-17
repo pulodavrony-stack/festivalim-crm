@@ -497,7 +497,7 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
           {/* Client Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Клиент</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Контакт</label>
             <input
               type="text"
               value={searchQuery}

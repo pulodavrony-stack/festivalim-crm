@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import type { Team } from '@/types/team';
 
 const EXPORT_TABLES = [
-  { name: 'clients', label: 'Клиенты' },
+  { name: 'clients', label: 'Контакты' },
   { name: 'deals', label: 'Сделки' },
   { name: 'calls', label: 'Звонки' },
   { name: 'tasks', label: 'Задачи' },
@@ -32,8 +32,9 @@ export default function DataExportPage() {
   const [exporting, setExporting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  // Проверяем права доступа
-  if (manager?.role !== 'admin') {
+  // Проверяем права доступа - admin и team_admin
+  const isAdminRole = manager?.role === 'admin' || manager?.role === 'team_admin';
+  if (!isAdminRole) {
     return (
       <div className="min-h-screen flex bg-gray-50">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -56,6 +57,7 @@ export default function DataExportPage() {
     );
   }
   
+  // team_admin видит только свою команду, super admin видит все
   const teams = canSwitchTeams ? allTeams : (currentTeam ? [currentTeam] : []);
   
   async function handleExport() {

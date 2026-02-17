@@ -16,7 +16,7 @@ interface NavItem {
 const mainNav: NavItem[] = [
   { href: '/', label: 'Главная', icon: '🏠' },
   { href: '/pipeline', label: 'Воронка', icon: '📊' },
-  { href: '/clients', label: 'Клиенты', icon: '👥' },
+  { href: '/clients', label: 'Контакты', icon: '👥' },
   { href: '/companies', label: 'B2B Компании', icon: '🏢' },
   { href: '/tasks', label: 'Задачи', icon: '📋' },
   { href: '/messages', label: 'Сообщения', icon: '💬' },

@@ -402,7 +402,7 @@ export default function EventDetailPage() {
                   onClick={() => router.push(`/clients?event=${event.id}`)}
                   className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                 >
-                  Клиенты события
+                  Контакты события
                 </button>
               </div>
             </div>

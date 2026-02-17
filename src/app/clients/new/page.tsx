@@ -79,7 +79,7 @@ export default function NewClientPage() {
     await supabase.from('activities').insert({
       client_id: data.id,
       activity_type: 'client_created',
-      content: 'Клиент создан вручную',
+      content: 'Контакт создан вручную',
     });
 
     router.push(`/clients/${data.id}`);
@@ -92,11 +92,11 @@ export default function NewClientPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <Link href="/clients" className="text-gray-500 hover:text-gray-700">
-                ← Клиенты
+                ← Контакты
               </Link>
               <span className="text-gray-300">/</span>
               <h1 className="text-xl font-bold text-gray-900">
-                Новый клиент
+                Новый контакт
               </h1>
             </div>
           </div>
@@ -187,11 +187,11 @@ export default function NewClientPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Тип клиента
+                Тип контакта
               </label>
               <div className="flex space-x-4">
                 {[
-                  { value: 'lead', label: 'Лид', color: 'bg-blue-500' },
+                  { value: 'lead', label: 'B2B', color: 'bg-blue-500' },
                   { value: 'pk', label: 'ПК', color: 'bg-purple-500' },
                   { value: 'kb', label: 'КБ', color: 'bg-green-500' },
                 ].map((type) => (
@@ -219,7 +219,7 @@ export default function NewClientPage() {
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 rows={3}
-                placeholder="Дополнительная информация о клиенте..."
+                placeholder="Дополнительная информация о контакте..."
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all resize-none"
               />
             </div>
@@ -237,7 +237,7 @@ export default function NewClientPage() {
               disabled={loading}
               className="px-6 py-3 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors disabled:opacity-50"
             >
-              {loading ? 'Создание...' : 'Создать клиента'}
+              {loading ? 'Создание...' : 'Создать контакт'}
             </button>
           </div>
         </form>

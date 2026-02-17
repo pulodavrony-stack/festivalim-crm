@@ -75,7 +75,7 @@ const activityIcons: Record<string, string> = {
 };
 
 const clientTypeLabels = {
-  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'Потенциальный клиент', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'Клиентская база', color: 'bg-green-100 text-green-700' },
 };
@@ -405,7 +405,7 @@ function ClientPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">🔍</div>
-          <h2 className="text-xl font-bold mb-2">Клиент не найден</h2>
+          <h2 className="text-xl font-bold mb-2">Контакт не найден</h2>
           <Link href="/clients" className="text-red-500 hover:underline">
             ← Вернуться к списку
           </Link>
@@ -422,7 +422,7 @@ function ClientPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <Link href="/clients" className="text-gray-500 hover:text-gray-700">
-                ← Клиенты
+                ← Контакты
               </Link>
               <span className="text-gray-300">/</span>
               <h1 className="text-xl font-bold text-gray-900">

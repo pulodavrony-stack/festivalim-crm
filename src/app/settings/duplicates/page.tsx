@@ -23,7 +23,7 @@ interface DuplicateGroup {
 }
 
 const clientTypeLabels = {
-  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'ПК', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'КБ', color: 'bg-green-100 text-green-700' },
 };
@@ -204,7 +204,7 @@ export default function DuplicatesPage() {
               Найдено дубликатов: {duplicates.length}
             </h3>
             <p className="text-sm text-gray-500">
-              Клиенты с одинаковым номером телефона. Первый в списке рекомендуется как основная запись.
+              Контакты с одинаковым номером телефона. Первый в списке рекомендуется как основная запись.
             </p>
           </div>
           

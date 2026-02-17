@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useTeam } from '@/components/providers/TeamProvider';
+import { useAuth } from '@/components/providers/AuthProvider';
 import Sidebar from '@/components/layout/Sidebar';
 import { useToast } from '@/components/ui/Toast';
 
@@ -14,41 +16,75 @@ interface ManagerRow {
   is_active: boolean;
   has_b2c_access: boolean;
   has_b2b_access: boolean;
+  team_id?: string;
 }
 
 const roleLabels: Record<string, string> = {
   admin: 'Администратор',
+  team_admin: 'Админ команды',
   rop: 'РОП',
   manager: 'Менеджер',
   marketer: 'Маркетолог',
 };
 
 export default function ManagersAccessPage() {
+  const { user } = useAuth();
+  const { team, isSuperAdmin } = useTeam();
   const [managers, setManagers] = useState<ManagerRow[]>([]);
+  const [currentManager, setCurrentManager] = useState<ManagerRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toast = useToast();
 
-  useEffect(() => {
-    loadManagers();
-  }, []);
+  const loadCurrentManager = useCallback(async () => {
+    if (!user) return null;
+    const { data } = await supabase
+      .from('managers')
+      .select('id, full_name, email, role, is_active, has_b2c_access, has_b2b_access, team_id')
+      .eq('auth_user_id', user.id)
+      .single();
+    return data;
+  }, [user]);
 
-  async function loadManagers() {
+  const loadManagers = useCallback(async (currentMgr: ManagerRow) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('managers')
-        .select('id, full_name, email, role, is_active, has_b2c_access, has_b2b_access')
+        .select('id, full_name, email, role, is_active, has_b2c_access, has_b2b_access, team_id')
         .order('full_name');
 
+      // team_admin can only see managers from their own team
+      if (currentMgr.role === 'team_admin' && currentMgr.team_id) {
+        query = query.eq('team_id', currentMgr.team_id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setManagers(data || []);
     } catch (error) {
       console.error('Error loading managers:', error);
-    } finally {
+    }
+  }, []);
+
+  useEffect(() => {
+    async function init() {
+      const mgr = await loadCurrentManager();
+      if (mgr) {
+        setCurrentManager(mgr);
+        
+        // Only admin or team_admin can access this page
+        if (mgr.role !== 'admin' && mgr.role !== 'team_admin') {
+          setLoading(false);
+          return;
+        }
+
+        await loadManagers(mgr);
+      }
       setLoading(false);
     }
-  }
+    init();
+  }, [loadCurrentManager, loadManagers]);
 
   async function updateAccess(managerId: string, field: 'has_b2c_access' | 'has_b2b_access', value: boolean) {
     setSaving(managerId);
@@ -91,6 +127,20 @@ export default function ManagersAccessPage() {
     return shell(
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      </div>
+    );
+  }
+
+  if (!currentManager || (currentManager.role !== 'admin' && currentManager.role !== 'team_admin')) {
+    return shell(
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <h2 className="text-lg font-semibold text-red-800">Доступ запрещен</h2>
+          <p className="text-red-600 mt-2">У вас нет прав для управления правами доступа</p>
+          <Link href="/" className="inline-block mt-4 text-blue-600 hover:underline">
+            Вернуться на главную
+          </Link>
+        </div>
       </div>
     );
   }

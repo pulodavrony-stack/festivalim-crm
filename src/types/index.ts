@@ -15,7 +15,7 @@ export type Branch = 'atlant' | 'etazhi';
 // Типы клиентов (ключевое!)
 export type ClientType = 'lead' | 'pk' | 'kb';
 export const ClientTypeLabels: Record<ClientType, string> = {
-  lead: 'Лид',
+  lead: 'B2B',
   pk: 'ПК',
   kb: 'КБ',
 };
@@ -163,7 +163,7 @@ export interface EventFull extends Event {
 }
 
 // =============================================
-// КЛИЕНТЫ
+// КОНТАКТЫ
 // =============================================
 
 export interface Client {

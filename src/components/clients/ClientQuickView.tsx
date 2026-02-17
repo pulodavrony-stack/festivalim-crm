@@ -103,7 +103,7 @@ const activityIcons: Record<string, string> = {
 };
 
 const clientTypeLabels = {
-  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'ПК', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'КБ', color: 'bg-green-100 text-green-700' },
 };
@@ -146,7 +146,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
       
       if (clientError) {
         console.error('[ClientQuickView] Error loading client:', clientError);
-        setLoadError('Не удалось загрузить клиента');
+        setLoadError('Не удалось загрузить контакт');
         setLoading(false);
         return;
       }
@@ -662,7 +662,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-64">
-                  <p className="text-gray-500">Клиент не найден</p>
+                  <p className="text-gray-500">Контакт не найден</p>
                 </div>
               )}
             </div>

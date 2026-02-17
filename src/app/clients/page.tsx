@@ -61,7 +61,7 @@ interface Filters {
 }
 
 const clientTypeLabels = {
-  lead: { label: 'Лид', color: 'bg-blue-100 text-blue-700' },
+  lead: { label: 'B2B', color: 'bg-blue-100 text-blue-700' },
   pk: { label: 'ПК', color: 'bg-purple-100 text-purple-700' },
   kb: { label: 'КБ', color: 'bg-green-100 text-green-700' },
 };
@@ -408,7 +408,7 @@ export default function ClientsPage() {
             <div className="flex items-center space-x-4">
               <Link href="/" className="text-2xl">🎭</Link>
               <h1 className="text-xl font-bold text-gray-900">
-                Клиенты
+                Контакты
               </h1>
             </div>
             <div className="flex items-center space-x-4">
@@ -416,7 +416,7 @@ export default function ClientsPage() {
                 href="/clients/new"
                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
-                + Добавить клиента
+                + Добавить контакт
               </Link>
               <Link href="/" className="text-gray-600 hover:text-gray-900">
                 ← Назад
@@ -449,7 +449,7 @@ export default function ClientsPage() {
             }`}
           >
             <div className="text-2xl font-bold">{stats.lead}</div>
-            <div className="text-sm opacity-70">Лиды</div>
+            <div className="text-sm opacity-70">B2B</div>
           </button>
           <button
             onClick={() => setFilters({ ...filters, client_type: 'pk' })}
@@ -708,7 +708,7 @@ export default function ClientsPage() {
             </div>
           ) : filteredClients.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              {search ? 'Клиенты не найдены' : 'Нет клиентов'}
+              {search ? 'Контакты не найдены' : 'Нет контактов'}
             </div>
           ) : (
             <table className="w-full">
@@ -723,7 +723,7 @@ export default function ClientsPage() {
                     />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Клиент
+                    Контакт
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Тип
@@ -875,7 +875,7 @@ export default function ClientsPage() {
               Назначить менеджера
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Выбрано клиентов: {selectedClients.size}
+              Выбрано контактов: {selectedClients.size}
             </p>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {managers.map((m) => (

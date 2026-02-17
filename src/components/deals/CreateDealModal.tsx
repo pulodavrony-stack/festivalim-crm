@@ -242,7 +242,7 @@ export default function CreateDealModal({
                   {/* Client selector */}
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Клиент *
+                      Контакт *
                     </label>
                     {selectedClient ? (
                       <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -290,7 +290,7 @@ export default function CreateDealModal({
                             ))}
                             {filteredClients.length === 0 && (
                               <div className="px-4 py-3 text-gray-500 text-sm">
-                                Клиент не найден
+                                Контакт не найден
                               </div>
                             )}
                           </div>

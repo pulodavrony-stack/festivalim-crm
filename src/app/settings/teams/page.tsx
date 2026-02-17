@@ -11,7 +11,7 @@ import type { Team } from '@/types/team';
 
 export default function TeamsSettingsPage() {
   const { manager } = useAuth();
-  const { team: currentTeam, canSwitchTeams } = useTeam();
+  const { team: currentTeam, canSwitchTeams, isSuperAdmin } = useTeam();
   const toast = useToast();
   const publicClient = getPublicClient();
   
@@ -58,6 +58,18 @@ export default function TeamsSettingsPage() {
   
   const loadTeams = useCallback(async () => {
     try {
+      // team_admin может видеть только свою команду
+      // super_admin может видеть все команды
+      if (!isSuperAdmin && currentTeam) {
+        // team_admin - показываем только текущую команду
+        setTeams([currentTeam]);
+        setSelectedTeam(currentTeam);
+        updateForm(currentTeam);
+        setLoading(false);
+        return;
+      }
+      
+      // super_admin - загружаем все команды
       const { data, error } = await publicClient
         .from('teams')
         .select('*')
@@ -84,7 +96,7 @@ export default function TeamsSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentTeam]);
+  }, [currentTeam, isSuperAdmin]);
   
   function updateForm(team: Team) {
     setForm({
@@ -562,7 +574,7 @@ export default function TeamsSettingsPage() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="text-center">
                             <div className="text-2xl font-bold text-indigo-600">{selectedTeam.total_clients || 0}</div>
-                            <div className="text-sm text-gray-500">Клиентов</div>
+                            <div className="text-sm text-gray-500">Контактов</div>
                           </div>
                           <div className="text-center">
                             <div className="text-2xl font-bold text-purple-600">{selectedTeam.total_deals || 0}</div>

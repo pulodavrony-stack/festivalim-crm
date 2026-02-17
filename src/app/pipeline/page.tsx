@@ -467,7 +467,7 @@ function PipelinePage() {
                 type="text"
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                placeholder="Поиск: клиент, телефон..."
+                placeholder="Поиск: контакт, телефон..."
                 className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
               />
             </div>

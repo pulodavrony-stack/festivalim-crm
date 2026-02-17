@@ -243,7 +243,7 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
             <h2 className="text-xl font-semibold text-gray-900">
-              Редактирование клиента
+              Редактирование контакта
             </h2>
             <button
               onClick={onClose}
@@ -311,14 +311,14 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Тип клиента
+                      Тип контакта
                     </label>
                     <select
                       value={formData.client_type}
                       onChange={(e) => setFormData({ ...formData, client_type: e.target.value as any })}
                       className="w-full px-4 py-2 border rounded-lg focus:border-red-500 outline-none"
                     >
-                      <option value="lead">Лид</option>
+                      <option value="lead">B2B</option>
                       <option value="pk">Потенциальный клиент</option>
                       <option value="kb">Клиентская база</option>
                     </select>
@@ -548,7 +548,7 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full px-4 py-2 border rounded-lg focus:border-red-500 outline-none resize-none"
                     rows={3}
-                    placeholder="Дополнительная информация о клиенте..."
+                    placeholder="Дополнительная информация о контакте..."
                   />
                 </div>
               </div>
