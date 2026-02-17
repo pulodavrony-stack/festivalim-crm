@@ -47,11 +47,40 @@ const nextConfig = {
         ],
       },
       {
-        source: '/_next/static/:path*',
+        // JS chunks with hash in filename - cache forever (immutable)
+        source: '/_next/static/chunks/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // Build manifests and other _next/static files - no cache
+        source: '/_next/static/:path((?!chunks).*)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        // HTML pages - never cache, always get fresh after deploy
+        source: '/((?!_next|api).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
           },
         ],
       },
