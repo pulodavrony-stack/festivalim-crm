@@ -320,7 +320,10 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                       💬 WhatsApp
                     </button>
                     <button
-                      onClick={() => window.open('https://web.max.ru/', '_blank')}
+                      onClick={() => {
+                        const phone = (client.phone || '').replace(/[^\d]/g, '');
+                        window.open(phone ? `https://web.max.ru/#/chat?phone=${phone}` : 'https://web.max.ru/', '_blank');
+                      }}
                       className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                     >
                       💜 MAX

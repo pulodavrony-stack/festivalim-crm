@@ -239,7 +239,12 @@ export default function SalesToolsPanel({
     if (text) {
       await copyToClipboard(text);
     }
-    window.open('https://web.max.ru/', '_blank');
+    if (clientPhone) {
+      const phone = (clientPhone || '').replace(/[^\d]/g, '');
+      window.open(`https://web.max.ru/#/chat?phone=${phone}`, '_blank');
+    } else {
+      window.open('https://web.max.ru/', '_blank');
+    }
   }
 
   async function openTelegram(username?: string, customMessage?: string) {
@@ -530,7 +535,7 @@ export default function SalesToolsPanel({
                   <div className="text-left flex-1">
                     <p className="text-sm font-medium text-gray-900">Max (VK Teams)</p>
                     <p className="text-xs text-gray-500">
-                      {messageTemplate ? 'Текст скопирован — вставьте Ctrl+V' : 'Откроется в новом окне'}
+                      {messageTemplate ? 'Откроется чат + текст скопирован (Ctrl+V)' : 'Откроется чат'}
                     </p>
                   </div>
                   {messageTemplate && <span className="text-xs text-purple-600 font-medium">📋 скопировано</span>}
@@ -604,6 +609,16 @@ export default function SalesToolsPanel({
                           title="WhatsApp"
                         >
                           💬
+                        </button>
+                        <button
+                          onClick={() => {
+                            const cleaned = (c.phone || '').replace(/[^\d]/g, '');
+                            window.open(cleaned ? `https://web.max.ru/#/chat?phone=${cleaned}` : 'https://web.max.ru/', '_blank');
+                          }}
+                          className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                          title="MAX"
+                        >
+                          💜
                         </button>
                         {c.email && (
                           <button
@@ -734,12 +749,23 @@ export default function SalesToolsPanel({
                       {c.phone && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500">📞</span>
+                          <span className="text-xs text-gray-700">{c.phone}</span>
                           <button
                             onClick={() => openWhatsAppForPhone(c.phone)}
-                            className="text-xs text-gray-700 hover:text-green-600 hover:underline"
-                            title="Открыть WhatsApp"
+                            className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                            title="WhatsApp"
                           >
-                            {c.phone}
+                            WA
+                          </button>
+                          <button
+                            onClick={() => {
+                              const cleaned = (c.phone || '').replace(/[^\d]/g, '');
+                              window.open(cleaned ? `https://web.max.ru/#/chat?phone=${cleaned}` : 'https://web.max.ru/', '_blank');
+                            }}
+                            className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                            title="MAX"
+                          >
+                            MAX
                           </button>
                         </div>
                       )}

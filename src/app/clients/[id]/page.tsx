@@ -382,7 +382,10 @@ export default function ClientPage() {
                 💬 WhatsApp
               </button>
               <button
-                onClick={() => window.open('https://web.max.ru/', '_blank')}
+                onClick={() => {
+                  const phone = (client.phone || '').replace(/[^\d]/g, '');
+                  window.open(phone ? `https://web.max.ru/#/chat?phone=${phone}` : 'https://web.max.ru/', '_blank');
+                }}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium"
               >
                 💜 MAX
