@@ -25,6 +25,8 @@ interface SalesToolsPanelProps {
   clientId: string | null;
   clientPhone?: string;
   clientName?: string;
+  clientOrg?: string;
+  dealTitle?: string;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -33,6 +35,8 @@ export default function SalesToolsPanel({
   clientId,
   clientPhone,
   clientName,
+  clientOrg,
+  dealTitle,
   isOpen,
   onClose,
 }: SalesToolsPanelProps) {
@@ -45,6 +49,10 @@ export default function SalesToolsPanel({
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [editScript, setEditScript] = useState({ title: '', content: '', category: 'general' });
 
+  // Messaging templates
+  const [messageTemplate, setMessageTemplate] = useState('');
+  const [copiedToast, setCopiedToast] = useState(false);
+
   // Contacts
   const [contacts, setContacts] = useState<ClientContact[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
@@ -54,6 +62,40 @@ export default function SalesToolsPanel({
   const [editContact, setEditContact] = useState({
     full_name: '', position: '', phone: '', email: '', comments: ''
   });
+
+  // Generate personalized message from script template
+  function generateMessage(scriptContent: string): string {
+    const contactName = clientName || 'Уважаемый руководитель';
+    const orgName = clientOrg || '';
+    const firstName = contactName.split(' ').slice(-1)[0] || contactName;
+    
+    return scriptContent
+      .replace(/\{ФИО\}/g, contactName)
+      .replace(/\{Имя\}/g, firstName)
+      .replace(/\{Организация\}/g, orgName)
+      .replace(/\{Сделка\}/g, dealTitle || '')
+      .replace(/\[ваше имя\]/g, 'менеджер')
+      .replace(/\[ФИО\]/g, contactName)
+      .replace(/\{Дата\}/g, new Date().toLocaleDateString('ru-RU'));
+  }
+
+  // Copy text to clipboard and show toast
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 2500);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 2500);
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -172,25 +214,41 @@ export default function SalesToolsPanel({
     loadContacts();
   }
 
-  // === Messaging ===
-  function openWhatsApp() {
+  // === Messaging with templates ===
+  function openWhatsApp(customMessage?: string) {
     if (!clientPhone) return;
-    const phone = clientPhone.replace(/[^\d]/g, '');
-    window.open(`https://wa.me/${phone}`, '_blank');
+    const phone = (clientPhone || '').replace(/[^\d]/g, '');
+    const text = customMessage || messageTemplate;
+    const url = text
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/${phone}`;
+    window.open(url, '_blank');
   }
 
-  function openWhatsAppForPhone(phone: string) {
-    const cleaned = phone.replace(/[^\d]/g, '');
-    window.open(`https://wa.me/${cleaned}`, '_blank');
+  function openWhatsAppForPhone(phone: string, customMessage?: string) {
+    const cleaned = (phone || '').replace(/[^\d]/g, '');
+    const text = customMessage || messageTemplate;
+    const url = text
+      ? `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/${cleaned}`;
+    window.open(url, '_blank');
   }
 
-  function openMax() {
+  async function openMax(customMessage?: string) {
+    const text = customMessage || messageTemplate;
+    if (text) {
+      await copyToClipboard(text);
+    }
     window.open('https://web.max.ru/', '_blank');
   }
 
-  function openTelegram(username?: string) {
+  async function openTelegram(username?: string, customMessage?: string) {
+    const text = customMessage || messageTemplate;
+    if (text) {
+      await copyToClipboard(text);
+    }
     if (username) {
-      window.open(`https://t.me/${username.replace('@', '')}`, '_blank');
+      window.open(`https://t.me/${(username || '').replace('@', '')}`, '_blank');
     } else {
       window.open('https://web.telegram.org/', '_blank');
     }
@@ -378,74 +436,141 @@ export default function SalesToolsPanel({
         {/* === MESSAGING TAB === */}
         {activeTab === 'messaging' && (
           <div className="p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-gray-900">Связаться с клиентом</h3>
+            {/* Step 1: Quick template from scripts */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">1. Выберите шаблон сообщения</h3>
+              <div className="space-y-1.5">
+                {scripts.map(script => (
+                  <button
+                    key={script.id}
+                    onClick={() => setMessageTemplate(generateMessage(script.content))}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs border transition-all ${
+                      messageTemplate === generateMessage(script.content)
+                        ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="font-medium">{script.title}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setMessageTemplate('')}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs border transition-all ${
+                    messageTemplate === '' 
+                      ? 'border-gray-400 bg-gray-50 text-gray-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  Без шаблона
+                </button>
+              </div>
+            </div>
 
-            {clientPhone ? (
-              <>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 mb-1">Основной телефон</p>
-                  <p className="text-lg font-semibold text-gray-900">{clientPhone}</p>
+            {/* Step 2: Preview and edit message */}
+            {messageTemplate && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">2. Текст сообщения</h3>
+                <textarea
+                  value={messageTemplate}
+                  onChange={(e) => setMessageTemplate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none resize-none"
+                  rows={5}
+                  placeholder="Текст сообщения..."
+                />
+                <div className="flex gap-1.5 mt-1.5">
+                  <button
+                    onClick={() => copyToClipboard(messageTemplate)}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 rounded hover:bg-indigo-50"
+                  >
+                    📋 Копировать
+                  </button>
+                  <button
+                    onClick={() => setMessageTemplate('')}
+                    className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50"
+                  >
+                    Очистить
+                  </button>
                 </div>
-
-                <div className="space-y-2">
-                  <button
-                    onClick={openWhatsApp}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white text-lg">
-                      💬
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900">WhatsApp</p>
-                      <p className="text-xs text-gray-500">Откроется в новом окне</p>
-                    </div>
-                    <span className="ml-auto text-gray-400">↗</span>
-                  </button>
-
-                  <button
-                    onClick={openMax}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white text-lg">
-                      💜
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900">Max (VK Teams)</p>
-                      <p className="text-xs text-gray-500">Откроется в новом окне</p>
-                    </div>
-                    <span className="ml-auto text-gray-400">↗</span>
-                  </button>
-
-                  <button
-                    onClick={() => openTelegram()}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-lg">
-                      ✈️
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900">Telegram</p>
-                      <p className="text-xs text-gray-500">Откроется в новом окне</p>
-                    </div>
-                    <span className="ml-auto text-gray-400">↗</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-6 text-gray-400">
-                <div className="text-3xl mb-2">📱</div>
-                <p className="text-sm">Нет номера телефона</p>
               </div>
             )}
 
-            {/* Email button - always show if we can find an email */}
+            {/* Step 3: Send via messenger */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                {messageTemplate ? '3. Отправьте через мессенджер' : '2. Связаться с клиентом'}
+              </h3>
+              
+              <div className="space-y-2">
+                {/* WhatsApp - supports pre-filled text */}
+                <button
+                  onClick={() => openWhatsApp()}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white text-lg">
+                    💬
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-medium text-gray-900">WhatsApp</p>
+                    <p className="text-xs text-gray-500">
+                      {messageTemplate ? 'Откроется с текстом сообщения' : 'Откроется чат'}
+                    </p>
+                  </div>
+                  {messageTemplate && <span className="text-xs text-green-600 font-medium">+ текст</span>}
+                  <span className="text-gray-400">↗</span>
+                </button>
+
+                {/* MAX - copy to clipboard + open */}
+                <button
+                  onClick={() => openMax()}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white text-lg">
+                    💜
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-medium text-gray-900">Max (VK Teams)</p>
+                    <p className="text-xs text-gray-500">
+                      {messageTemplate ? 'Текст скопирован — вставьте Ctrl+V' : 'Откроется в новом окне'}
+                    </p>
+                  </div>
+                  {messageTemplate && <span className="text-xs text-purple-600 font-medium">📋 скопировано</span>}
+                  <span className="text-gray-400">↗</span>
+                </button>
+
+                {/* Telegram - copy to clipboard + open */}
+                <button
+                  onClick={() => openTelegram()}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+                >
+                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white text-lg">
+                    ✈️
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-medium text-gray-900">Telegram</p>
+                    <p className="text-xs text-gray-500">
+                      {messageTemplate ? 'Текст скопирован — вставьте Ctrl+V' : 'Откроется в новом окне'}
+                    </p>
+                  </div>
+                  {messageTemplate && <span className="text-xs text-blue-600 font-medium">📋 скопировано</span>}
+                  <span className="text-gray-400">↗</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Phone info */}
+            {clientPhone && (
+              <div className="bg-gray-50 rounded-xl p-3 mt-2">
+                <p className="text-xs text-gray-500">Телефон клиента</p>
+                <p className="text-sm font-semibold text-gray-900">{clientPhone}</p>
+              </div>
+            )}
+
+            {/* Email button */}
             <div className="pt-2 border-t">
               <button
                 onClick={() => {
-                  if (clientPhone) {
-                    setEmailRecipient('');
-                    setShowEmailCompose(true);
-                  }
+                  setEmailRecipient('');
+                  setShowEmailCompose(true);
                 }}
                 className="w-full flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
               >
@@ -654,6 +779,14 @@ export default function SalesToolsPanel({
         toEmail={emailRecipient}
         clientName={clientName}
       />
+
+      {/* Copied toast */}
+      {copiedToast && (
+        <div className="fixed bottom-6 right-6 z-[100] bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-fade-in">
+          <span className="text-lg">✅</span>
+          <span className="text-sm font-medium">Сообщение скопировано в буфер обмена</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -95,7 +95,7 @@ function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [quickViewClientId, setQuickViewClientId] = useState<string | null>(null);
-  const [selectedClientInfo, setSelectedClientInfo] = useState<{ phone?: string; name?: string } | null>(null);
+  const [selectedClientInfo, setSelectedClientInfo] = useState<{ phone?: string; name?: string; org?: string; dealTitle?: string } | null>(null);
   const [isCreateDealOpen, setIsCreateDealOpen] = useState(false);
   const [moveDealId, setMoveDealId] = useState<string | null>(null);
   const toast = useToast();
@@ -546,7 +546,12 @@ function PipelinePage() {
                   setQuickViewClientId(clientId);
                   const deal = deals.find(d => d.client?.id === clientId);
                   if (deal?.client) {
-                    setSelectedClientInfo({ phone: deal.client.phone, name: deal.client.full_name });
+                    setSelectedClientInfo({
+                      phone: deal.client.phone,
+                      name: deal.client.full_name,
+                      org: deal.title || '',
+                      dealTitle: deal.title || '',
+                    });
                   }
                 }}
                 onMoveToPipeline={(dealId) => setMoveDealId(dealId)}
@@ -590,6 +595,8 @@ function PipelinePage() {
         clientId={quickViewClientId}
         clientPhone={selectedClientInfo?.phone}
         clientName={selectedClientInfo?.name}
+        clientOrg={selectedClientInfo?.org}
+        dealTitle={selectedClientInfo?.dealTitle}
         isOpen={!!quickViewClientId}
         onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
       />
