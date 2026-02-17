@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
@@ -80,7 +80,48 @@ const clientTypeLabels = {
   kb: { label: 'Клиентская база', color: 'bg-green-100 text-green-700' },
 };
 
-export default function ClientPage() {
+class ClientPageErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center max-w-md p-6">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Ошибка загрузки страницы</h2>
+            <p className="text-sm text-gray-500 mb-4">{this.state.error?.message}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium"
+            >
+              Перезагрузить
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function ClientPageWrapper() {
+  return (
+    <ClientPageErrorBoundary>
+      <ClientPage />
+    </ClientPageErrorBoundary>
+  );
+}
+
+function ClientPage() {
   const params = useParams();
   const router = useRouter();
   const supabase = useSchemaClient();
@@ -245,37 +286,80 @@ export default function ClientPage() {
   }
 
   async function loadClient() {
-    const [clientResult, activitiesResult, dealsResult] = await Promise.all([
-      supabase
+    try {
+      // Load client without complex joins that may fail across schemas
+      const clientResult = await supabase
         .from('clients')
-        .select(`
-          *,
-          city:cities(name),
-          source:lead_sources(name)
-        `)
+        .select('*')
         .eq('id', params.id)
-        .single(),
-      supabase
+        .single();
+
+      if (clientResult.error) {
+        console.error('Error loading client:', clientResult.error);
+        setLoading(false);
+        return;
+      }
+
+      if (clientResult.data) {
+        // Separately load city and source names
+        const clientData = { ...clientResult.data } as any;
+        
+        if (clientData.city_id) {
+          const { data: cityData } = await supabase
+            .from('cities')
+            .select('name')
+            .eq('id', clientData.city_id)
+            .single();
+          if (cityData) clientData.city = cityData;
+        }
+
+        if (clientData.source_id) {
+          const { data: sourceData } = await supabase
+            .from('lead_sources')
+            .select('name')
+            .eq('id', clientData.source_id)
+            .single();
+          if (sourceData) clientData.source = sourceData;
+        }
+
+        setClient(clientData);
+      }
+
+      // Load activities
+      const { data: activitiesData } = await supabase
         .from('activities')
         .select('*')
         .eq('client_id', params.id)
         .order('created_at', { ascending: false })
-        .limit(50),
-      supabase
-        .from('deals')
-        .select(`
-          *,
-          stage:pipeline_stages(name, color),
-          event:events(event_date, show:shows(title))
-        `)
-        .eq('client_id', params.id)
-        .order('created_at', { ascending: false }),
-    ]);
+        .limit(50);
+      if (activitiesData) setActivities(activitiesData);
 
-    if (clientResult.data) setClient(clientResult.data);
-    if (activitiesResult.data) setActivities(activitiesResult.data);
-    if (dealsResult.data) setDeals(dealsResult.data);
-    setLoading(false);
+      // Load deals - try with joins first, fallback to simple query
+      let dealsData = null;
+      const dealsWithJoins = await supabase
+        .from('deals')
+        .select('*, stage:pipeline_stages(name, color)')
+        .eq('client_id', params.id)
+        .order('created_at', { ascending: false });
+      
+      if (dealsWithJoins.data) {
+        dealsData = dealsWithJoins.data;
+      } else {
+        // Fallback: simple deals query without joins
+        const simpleDealResult = await supabase
+          .from('deals')
+          .select('*')
+          .eq('client_id', params.id)
+          .order('created_at', { ascending: false });
+        if (simpleDealResult.data) dealsData = simpleDealResult.data;
+      }
+      
+      if (dealsData) setDeals(dealsData);
+    } catch (err) {
+      console.error('Error in loadClient:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function addNote() {
@@ -580,13 +664,13 @@ export default function ClientPage() {
                     <div>
                       <label className="text-sm text-gray-500">Город</label>
                       <div className="text-gray-900">
-                        {client.city?.name || '—'}
+                        {(Array.isArray(client.city) ? client.city[0]?.name : client.city?.name) || '—'}
                       </div>
                     </div>
                     <div>
                       <label className="text-sm text-gray-500">Источник</label>
                       <div className="text-gray-900">
-                        {client.source?.name || '—'}
+                        {(Array.isArray(client.source) ? client.source[0]?.name : client.source?.name) || '—'}
                       </div>
                     </div>
                     <div>
