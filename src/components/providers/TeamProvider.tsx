@@ -91,9 +91,8 @@ export function TeamProvider({ children }: TeamProviderProps) {
             .eq('id', manager.team_id)
             .single();
           
-          // Team loaded
-          
           if (teamData) {
+            console.log('[TeamProvider] Team loaded:', teamData.name, 'schema:', teamData.schema_name);
             setTeam(teamData);
           }
         } else if (canSwitch && teamsData.length > 0) {

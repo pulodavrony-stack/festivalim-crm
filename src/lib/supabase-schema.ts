@@ -2,7 +2,6 @@
 // SUPABASE SCHEMA CLIENT: Multi-tenant support
 // =============================================
 
-import { createBrowserClient } from '@supabase/ssr';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_SCHEMA } from '@/types/team';
 
@@ -15,6 +14,7 @@ const schemaClients: Map<string, SupabaseClient> = new Map();
 
 /**
  * Создает Supabase клиент для конкретной PostgreSQL-схемы
+ * Использует createClient вместо createBrowserClient для корректной работы db.schema
  * @param schema - имя схемы (kstati, atlant, etazhi)
  */
 export function createSchemaClient(schema: string = DEFAULT_SCHEMA): SupabaseClient {
@@ -23,11 +23,11 @@ export function createSchemaClient(schema: string = DEFAULT_SCHEMA): SupabaseCli
     return schemaClients.get(schema)!;
   }
   
-  // Создаем новый клиент с указанной схемой
-  const client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  // Используем createClient напрямую — он корректно передает Accept-Profile header
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
     db: {
       schema: schema
-    }
+    },
   });
   
   // Кешируем
