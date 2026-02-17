@@ -148,7 +148,7 @@ export function TeamProvider({ children }: TeamProviderProps) {
     }
   }, [user]);
   
-  const isAdmin = managerRole === 'admin' || managerRole === 'super_admin' || canSwitchTeams;
+  const isAdmin = managerRole === 'admin' || managerRole === 'super_admin' || managerRole === 'team_admin' || canSwitchTeams;
   
   const value: TeamContext = useMemo(() => ({
     team,
