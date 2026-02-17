@@ -305,7 +305,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                 <div className="mt-4 space-y-2">
                   <div className="flex gap-2">
                     <ClickToCall 
-                      phoneNumber={client.phone}
+                      phoneNumber={client.phone || ''}
                       className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                     >
                       📞 Звонок
@@ -442,7 +442,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                     {client.phone && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">Телефон</span>
-                        <ClickToCall phoneNumber={client.phone} className="text-sm font-medium" />
+                        <ClickToCall phoneNumber={client.phone || ''} className="text-sm font-medium" />
                       </div>
                     )}
                     {client.email && (
