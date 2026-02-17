@@ -8,6 +8,7 @@ interface TooltipProps {
   shortcut?: string;
   position?: 'top' | 'bottom' | 'left' | 'right';
   delay?: number;
+  className?: string;
 }
 
 export default function Tooltip({ 
@@ -15,7 +16,8 @@ export default function Tooltip({
   content, 
   shortcut,
   position = 'top', 
-  delay = 400 
+  delay = 400,
+  className,
 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
@@ -61,7 +63,6 @@ export default function Tooltip({
           break;
       }
 
-      // Keep tooltip within viewport
       if (left < 8) left = 8;
       if (left + tooltipRect.width > window.innerWidth - 8) {
         left = window.innerWidth - tooltipRect.width - 8;
@@ -88,7 +89,7 @@ export default function Tooltip({
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
-        className="inline-flex"
+        className={className || 'inline-flex'}
       >
         {children}
       </div>
@@ -103,7 +104,6 @@ export default function Tooltip({
           {shortcut && (
             <span className="ml-2 text-gray-400 font-mono text-[10px]">{shortcut}</span>
           )}
-          {/* Arrow */}
           <div
             className={`absolute w-2 h-2 bg-gray-900 rotate-45 ${
               position === 'top' ? '-bottom-1 left-1/2 -translate-x-1/2' :

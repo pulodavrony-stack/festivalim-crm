@@ -309,50 +309,58 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
               {client && (
                 <div className="mt-4 space-y-2">
                   <div className="flex gap-2">
-                    <Tooltip content="Позвонить клиенту через SIP" position="bottom">
+                    <Tooltip content="Позвонить клиенту через SIP" position="bottom" className="flex-1">
                       <ClickToCall 
                         phoneNumber={client.phone || ''}
-                        className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                        className="w-full bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                       >
                         📞 Звонок
                       </ClickToCall>
                     </Tooltip>
-                    <Tooltip content="Открыть чат в WhatsApp Web" position="bottom">
+                    <Tooltip content={client.phone || client.whatsapp_phone ? "Открыть чат в WhatsApp Web" : "Нет номера телефона"} position="bottom" className="flex-1">
                       <button
                         onClick={() => {
                           const phone = (client.whatsapp_phone || client.phone || '').replace(/[^\d]/g, '');
-                          if (phone) window.open(`https://web.whatsapp.com/send?phone=${phone}`, '_blank');
+                          if (phone) {
+                            window.open(`https://web.whatsapp.com/send?phone=${phone}`, '_blank');
+                          } else {
+                            alert('У контакта нет номера телефона. Добавьте номер через "Редактировать".');
+                          }
                         }}
-                        className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                        className="w-full bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                       >
                         💬 WhatsApp
                       </button>
                     </Tooltip>
-                    <Tooltip content="Открыть чат в MAX мессенджере" position="bottom">
+                    <Tooltip content="Открыть чат в MAX мессенджере" position="bottom" className="flex-1">
                       <button
                         onClick={() => {
                           const phone = (client.phone || '').replace(/[^\d]/g, '');
-                          window.open(phone ? `https://web.max.ru/#/chat?phone=${phone}` : 'https://web.max.ru/', '_blank');
+                          if (phone) {
+                            window.open(`https://web.max.ru/#/chat?phone=${phone}`, '_blank');
+                          } else {
+                            window.open('https://web.max.ru/', '_blank');
+                          }
                         }}
-                        className="flex-1 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                        className="w-full bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                       >
                         💜 MAX
                       </button>
                     </Tooltip>
                   </div>
                   <div className="flex gap-2">
-                    <Tooltip content="Изменить данные контакта" position="bottom">
+                    <Tooltip content="Изменить данные контакта" position="bottom" className="flex-1">
                       <button
                         onClick={() => setIsEditModalOpen(true)}
-                        className="flex-1 bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
+                        className="w-full bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
                       >
                         ✏️ Редактировать
                       </button>
                     </Tooltip>
-                    <Tooltip content="Быстро добавить до 30 контактов" position="bottom">
+                    <Tooltip content="Быстро добавить до 30 контактов" position="bottom" className="flex-1">
                       <button
                         onClick={() => setShowQuickAdd(true)}
-                        className="flex-1 bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
+                        className="w-full bg-white/10 hover:bg-white/20 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-colors"
                       >
                         ⚡ Добавить контакты
                       </button>
