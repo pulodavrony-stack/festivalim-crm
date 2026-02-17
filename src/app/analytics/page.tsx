@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { getPublicClient } from '@/lib/supabase-schema';
 import SalesTargetWidget from '@/components/dashboard/SalesTargetWidget';
 
 interface Stats {
@@ -127,9 +128,10 @@ export default function AnalyticsPage() {
   }, [period, activeTab, filters, teamLoading, teamSchema]);
 
   async function loadReferenceData() {
+    const publicClient = getPublicClient();
     const [citiesRes, managersRes, eventsRes, sourcesRes] = await Promise.all([
       supabase.from('cities').select('id, name').order('name'),
-      supabase.from('managers').select('id, full_name').eq('is_active', true),
+      publicClient.from('managers').select('id, full_name').eq('is_active', true),
       supabase.from('events').select('id, event_date, show:shows(title), city:cities(name)').order('event_date', { ascending: false }).limit(50),
       supabase.from('lead_sources').select('id, name').eq('is_active', true).order('name'),
     ]);
@@ -171,12 +173,13 @@ export default function AnalyticsPage() {
       clientsQuery = clientsQuery.eq('source_id', filters.source_id);
     }
 
+    const publicClient = getPublicClient();
     const [clientsResult, dealsResult, callsResult, pipelinesResult, managersListResult] = await Promise.all([
       clientsQuery,
       dealsQuery,
       callsQuery,
       supabase.from('pipelines').select('id, name, code'),
-      supabase.from('managers').select('id, full_name').eq('is_active', true),
+      publicClient.from('managers').select('id, full_name').eq('is_active', true),
     ]);
 
     // Process clients stats

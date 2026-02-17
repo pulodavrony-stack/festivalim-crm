@@ -37,8 +37,7 @@ export default function CompaniesPage() {
         .select(`
           id, name, legal_name, company_type, inn, phone, status,
           total_contracts, total_revenue, created_at,
-          city:cities(name),
-          manager:managers(full_name)
+          city:cities(name)
         `)
         .order('created_at', { ascending: false });
 

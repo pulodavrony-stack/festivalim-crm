@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient } from '@/components/providers/TeamProvider';
+import { getPublicClient } from '@/lib/supabase-schema';
 import Sidebar from '@/components/layout/Sidebar';
 import { CompanyTypeLabels } from '@/types/b2b';
 import type { CompanyType } from '@/types/b2b';
 
 export default function CreateCompanyPage() {
   const router = useRouter();
+  const supabase = useSchemaClient();
   const [loading, setLoading] = useState(false);
   const [cities, setCities] = useState<any[]>([]);
   const [managers, setManagers] = useState<any[]>([]);
@@ -37,9 +39,10 @@ export default function CreateCompanyPage() {
   }, []);
 
   async function loadRefs() {
+    const publicClient = getPublicClient();
     const [citiesRes, managersRes] = await Promise.all([
       supabase.from('cities').select('id, name').order('name'),
-      supabase.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
+      publicClient.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
     ]);
     setCities(citiesRes.data || []);
     setManagers(managersRes.data || []);

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
-import { supabase as publicSupabase } from '@/lib/supabase';
+import { getPublicClient } from '@/lib/supabase-schema';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 import ComposeEmailModal from '@/components/email/ComposeEmailModal';
@@ -47,7 +47,7 @@ interface Activity {
   activity_type: string;
   content: string;
   created_at: string;
-  manager?: { full_name: string };
+  manager_id?: string;
 }
 
 interface Deal {
@@ -167,7 +167,8 @@ export default function ClientPage() {
   }
 
   async function loadManagers() {
-    const { data } = await publicSupabase
+    const publicClient = getPublicClient();
+    const { data } = await publicClient
       .from('managers')
       .select('id, full_name, role, is_active')
       .eq('is_active', true)
@@ -250,17 +251,13 @@ export default function ClientPage() {
         .select(`
           *,
           city:cities(name),
-          source:lead_sources(name),
-          manager:managers(id, full_name)
+          source:lead_sources(name)
         `)
         .eq('id', params.id)
         .single(),
       supabase
         .from('activities')
-        .select(`
-          *,
-          manager:managers(full_name)
-        `)
+        .select('*')
         .eq('client_id', params.id)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -507,7 +504,7 @@ export default function ClientPage() {
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
                               {new Date(activity.created_at).toLocaleString('ru-RU')}
-                              {activity.manager && ` • ${activity.manager.full_name}`}
+                              {activity.manager_id && ` • ${managers.find(m => m.id === activity.manager_id)?.full_name || ''}`}
                             </div>
                           </div>
                         </div>
@@ -592,7 +589,7 @@ export default function ClientPage() {
                     <div>
                       <label className="text-sm text-gray-500">Менеджер</label>
                       <div className="text-gray-900">
-                        {client.manager?.full_name || '—'}
+                        {managers.find(m => m.id === client.manager_id)?.full_name || '—'}
                       </div>
                     </div>
                     <div>
@@ -793,9 +790,9 @@ export default function ClientPage() {
                   </option>
                 ))}
               </select>
-              {client.manager?.full_name && (
+              {client.manager_id && managers.find(m => m.id === client.manager_id) && (
                 <div className="mt-2 text-sm text-gray-500">
-                  Текущий: <span className="font-medium text-gray-700">{client.manager.full_name}</span>
+                  Текущий: <span className="font-medium text-gray-700">{managers.find(m => m.id === client.manager_id)?.full_name}</span>
                 </div>
               )}
             </div>

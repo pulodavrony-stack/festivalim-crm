@@ -14,6 +14,7 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { getPublicClient } from '@/lib/supabase-schema';
 import { PipelineColumn } from '@/components/pipeline/PipelineColumn';
 import { DealCard } from '@/components/pipeline/DealCard';
 import ClientQuickView from '@/components/clients/ClientQuickView';
@@ -210,8 +211,9 @@ export default function PipelinePage() {
   }, [activePipeline]);
 
   async function loadFilterData() {
+    const publicClient = getPublicClient();
     const [managersResult, showsResult, citiesResult] = await Promise.all([
-      supabase.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
+      publicClient.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('shows').select('id, title').eq('is_active', true).order('title'),
       supabase.from('cities').select('id, name').eq('is_active', true).order('name'),
     ]);

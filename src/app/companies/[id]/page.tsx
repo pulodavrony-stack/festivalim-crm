@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { getPublicClient } from '@/lib/supabase-schema';
 import Sidebar from '@/components/layout/Sidebar';
 import {
   CompanyTypeLabels,
@@ -36,13 +37,30 @@ export default function CompanyDetailPage() {
   const [contractEventId, setContractEventId] = useState('');
   const [savingContract, setSavingContract] = useState(false);
 
+  // Managers from public schema
+  const [managersMap, setManagersMap] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (!teamLoading) {
       loadCompany();
       loadContracts();
       loadEvents();
+      loadManagers();
     }
   }, [companyId, teamLoading, teamSchema]);
+
+  async function loadManagers() {
+    const publicClient = getPublicClient();
+    const { data } = await publicClient
+      .from('managers')
+      .select('id, full_name')
+      .eq('is_active', true);
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach((m: any) => { map[m.id] = m.full_name; });
+      setManagersMap(map);
+    }
+  }
 
   async function loadCompany() {
     try {
@@ -51,7 +69,6 @@ export default function CompanyDetailPage() {
         .select(`
           *,
           city:cities(id, name),
-          manager:managers(id, full_name),
           contacts:company_contacts(*)
         `)
         .eq('id', companyId)
@@ -72,8 +89,7 @@ export default function CompanyDetailPage() {
         .from('contracts')
         .select(`
           *,
-          event:events(event_date, show:shows(title)),
-          manager:managers(full_name)
+          event:events(event_date, show:shows(title))
         `)
         .eq('company_id', companyId)
         .order('contract_date', { ascending: false });
@@ -251,7 +267,7 @@ export default function CompanyDetailPage() {
           <div><span className="text-xs text-gray-400 uppercase">КПП</span><p className="font-medium">{company.kpp || '—'}</p></div>
           <div><span className="text-xs text-gray-400 uppercase">ОГРН</span><p className="font-medium">{company.ogrn || '—'}</p></div>
           <div><span className="text-xs text-gray-400 uppercase">Город</span><p className="font-medium">{company.city?.name || '—'}</p></div>
-          <div><span className="text-xs text-gray-400 uppercase">Менеджер</span><p className="font-medium">{company.manager?.full_name || '—'}</p></div>
+          <div><span className="text-xs text-gray-400 uppercase">Менеджер</span><p className="font-medium">{(company.manager_id && managersMap[company.manager_id]) || '—'}</p></div>
           <div><span className="text-xs text-gray-400 uppercase">Телефон</span><p className="font-medium">{company.phone || '—'}</p></div>
           <div><span className="text-xs text-gray-400 uppercase">Email</span><p className="font-medium">{company.email || '—'}</p></div>
           <div><span className="text-xs text-gray-400 uppercase">Юр. адрес</span><p className="font-medium text-sm">{company.legal_address || '—'}</p></div>

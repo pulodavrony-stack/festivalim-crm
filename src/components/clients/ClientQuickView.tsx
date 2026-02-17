@@ -130,75 +130,57 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
     }
   }, [isOpen, clientId]);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function loadClient() {
     setLoading(true);
+    setLoadError(null);
     
-    // Core queries that always exist in team schemas
-    const [clientResult, activitiesResult, dealsResult] = await Promise.all([
-      supabase
+    try {
+      // Load client (without cross-schema joins)
+      const { data: clientData, error: clientError } = await supabase
         .from('clients')
-        .select(`
-          *,
-          city:cities(name)
-        `)
+        .select('*')
         .eq('id', clientId)
-        .single(),
-      supabase
+        .single();
+      
+      if (clientError) {
+        console.error('[ClientQuickView] Error loading client:', clientError);
+        setLoadError('Не удалось загрузить клиента');
+        setLoading(false);
+        return;
+      }
+      
+      setClient(clientData);
+      
+      // Load deals with stages
+      const { data: dealsData } = await supabase
+        .from('deals')
+        .select('*, stage:pipeline_stages(name, color)')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+      if (dealsData) setDeals(dealsData);
+      
+      // Load activities
+      const { data: activitiesData } = await supabase
         .from('activities')
         .select('*')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false })
-        .limit(15),
-      supabase
-        .from('deals')
-        .select(`
-          *,
-          stage:pipeline_stages(name, color)
-        `)
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false }),
-    ]);
-
-    if (clientResult.data) setClient(clientResult.data);
-    if (activitiesResult.data) setActivities(activitiesResult.data);
-    if (dealsResult.data) setDeals(dealsResult.data);
+        .limit(15);
+      if (activitiesData) setActivities(activitiesData);
+      
+    } catch (err) {
+      console.error('[ClientQuickView] Unexpected error:', err);
+      setLoadError('Произошла ошибка загрузки');
+    }
     
-    // Optional queries (may not exist in all schemas)
-    try {
-      const { data: tagsData } = await supabase
-        .from('client_tags')
-        .select('tag:tags(*)')
-        .eq('client_id', clientId);
-      if (tagsData) setTags(tagsData.map((t: any) => t.tag).filter(Boolean));
-    } catch { setTags([]); }
-
-    try {
-      const { data: pitchesData } = await supabase
-        .from('client_pitches')
-        .select('*, event:events(id, event_date, venue_name, status, show:shows(title), city:cities(name))')
-        .eq('client_id', clientId);
-      if (pitchesData) setPitches(pitchesData);
-    } catch { setPitches([]); }
-
-    try {
-      const { data: eventsData } = await supabase
-        .from('events')
-        .select('id, event_date, venue_name, status, show:shows(title), city:cities(name)')
-        .gte('event_date', new Date().toISOString().split('T')[0])
-        .in('status', ['planned', 'on_sale'])
-        .order('event_date');
-      if (eventsData) setAvailableEvents(eventsData);
-    } catch { setAvailableEvents([]); }
-
-    try {
-      const { data: remindersData } = await supabase
-        .from('reminders')
-        .select('*, event:events(id, event_date, venue_name, status, show:shows(title), city:cities(name))')
-        .eq('client_id', clientId)
-        .order('remind_at');
-      if (remindersData) setReminders(remindersData);
-    } catch { setReminders([]); }
-
+    // Reset optional data
+    setTags([]);
+    setPitches([]);
+    setAvailableEvents([]);
+    setReminders([]);
+    
     setLoading(false);
   }
 
@@ -480,20 +462,10 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                         </button>
                       </div>
                     )}
-                    {(() => {
-                      const cityData = client.city;
-                      const cityName = Array.isArray(cityData) ? cityData[0]?.name : (cityData as any)?.name;
-                      return cityName ? (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-500">Город</span>
-                          <span className="text-sm font-medium text-gray-900">{cityName}</span>
-                        </div>
-                      ) : null;
-                    })()}
-                    {client.source?.name && (
+                    {(client as any).whatsapp_phone && (client as any).whatsapp_phone !== client.phone && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">Источник</span>
-                        <span className="text-sm font-medium text-gray-900">{client.source.name}</span>
+                        <span className="text-sm text-gray-500">WhatsApp</span>
+                        <span className="text-sm font-medium text-gray-900">{(client as any).whatsapp_phone}</span>
                       </div>
                     )}
                   </div>
@@ -674,6 +646,16 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                       )}
                     </div>
                   </div>
+                </div>
+              ) : loadError ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-3">
+                  <p className="text-red-500 text-sm">{loadError}</p>
+                  <button
+                    onClick={loadClient}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                  >
+                    Попробовать снова
+                  </button>
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-64">

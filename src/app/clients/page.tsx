@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { getPublicClient } from '@/lib/supabase-schema';
 
 interface Client {
   id: string;
@@ -120,17 +121,16 @@ export default function ClientsPage() {
   }, [filters, teamLoading, teamSchema]);
 
   async function loadReferenceData() {
-    const [citiesRes, managersRes, eventsRes, tagsRes, allClientsRes] = await Promise.all([
+    const publicClient = getPublicClient();
+    const [citiesRes, managersRes, tagsRes, allClientsRes] = await Promise.all([
       supabase.from('cities').select('id, name').order('name'),
-      supabase.from('managers').select('id, full_name').eq('is_active', true),
-      supabase.from('events').select('id, event_date, show:shows(title), city:cities(name)').order('event_date', { ascending: false }).limit(50),
+      publicClient.from('managers').select('id, full_name').eq('is_active', true),
       supabase.from('tags').select('id, name, color').order('name'),
       supabase.from('clients').select('client_type'),
     ]);
     
     if (citiesRes.data) setCities(citiesRes.data);
     if (managersRes.data) setManagers(managersRes.data);
-    if (eventsRes.data) setEvents(eventsRes.data);
     if (tagsRes.data) setTags(tagsRes.data);
     if (allClientsRes.data) {
       const all = allClientsRes.data;
@@ -151,8 +151,7 @@ export default function ClientsPage() {
       .select(`
         *,
         city:cities(name),
-        source:lead_sources(name),
-        manager:managers(full_name)
+        source:lead_sources(name)
       `)
       .order(filters.sort_by, { ascending: filters.sort_order === 'asc' })
       .limit(200);

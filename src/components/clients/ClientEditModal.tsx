@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSchemaClient } from '@/components/providers/TeamProvider';
+import { getPublicClient } from '@/lib/supabase-schema';
 
 interface Client {
   id: string;
@@ -90,11 +91,12 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
     setLoading(true);
     setError(null);
 
+    const publicClient = getPublicClient();
     const [clientResult, citiesResult, sourcesResult, managersResult, tagsResult, clientTagsResult] = await Promise.all([
       supabase.from('clients').select('*').eq('id', clientId).single(),
       supabase.from('cities').select('*').order('name'),
       supabase.from('lead_sources').select('*').order('name'),
-      supabase.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
+      publicClient.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
       supabase.from('tags').select('*').order('name'),
       supabase.from('client_tags').select('tag_id').eq('client_id', clientId),
     ]);
