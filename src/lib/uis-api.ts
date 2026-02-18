@@ -103,15 +103,11 @@ export async function initiateCall(
   const cleanPhone = clientPhone.replace(/\D/g, '');
 
   try {
+    // Параметры сотрудника: UIS сам направит звонок
+    // на зарегистрированное SIP-устройство (CRM в браузере)
     const employeeParams: any = { id: empId };
     if (employeePhone) {
       employeeParams.phone_number = employeePhone.replace(/\D/g, '');
-    }
-
-    // Указываем SIP-номер сотрудника для прямого WebRTC-вызова
-    const sipLogin = process.env.NEXT_PUBLIC_SIP_LOGIN;
-    if (sipLogin && !employeePhone) {
-      employeeParams.phone_number = sipLogin;
     }
 
     const requestBody = {
@@ -123,9 +119,9 @@ export async function initiateCall(
         virtual_phone_number: virtualPhoneNumber,
         employee: employeeParams,
         contact: cleanPhone,
-        first_call: 'employee', // Сначала звоним сотруднику, потом клиенту
-        switch_at_once: true, // Сразу соединить после ответа клиента
-        early_switching: true, // Сотрудник слышит гудки клиента
+        first_call: 'employee',
+        switch_at_once: true,
+        early_switching: true,
         show_virtual_phone_number: false,
         direction: 'out',
       },
