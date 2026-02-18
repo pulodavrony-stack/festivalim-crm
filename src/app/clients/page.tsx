@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
-import { schemaWrite } from '@/lib/schema-api';
+import { schemaWrite, schemaSelect } from '@/lib/schema-api';
 import Tooltip from '@/components/ui/Tooltip';
 
 interface Client {
@@ -79,7 +79,6 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 export default function ClientsPage() {
-  const supabase = useSchemaClient();
   const { teamSchema, isLoading: teamLoading, managerId: currentManagerId, isAdmin } = useTeam();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,15 +135,15 @@ export default function ClientsPage() {
       const publicClient = getPublicClient();
       
       const [citiesRes, managersRes, allClientsRes] = await Promise.all([
-        supabase.from('cities').select('id, name').order('name'),
+        schemaSelect(teamSchema, 'cities', { select: 'id, name', order: { column: 'name', ascending: true } }),
         publicClient.from('managers').select('id, full_name').eq('is_active', true),
-        supabase.from('clients').select('client_type'),
+        schemaSelect(teamSchema, 'clients', { select: 'client_type' }),
       ]);
       
       if (citiesRes.data) setCities(citiesRes.data);
       if (managersRes.data) setManagers(managersRes.data);
       if (allClientsRes.data) {
-        const all = allClientsRes.data;
+        const all = allClientsRes.data as any[];
         setTotalStats({
           all: all.length,
           lead: all.filter(c => c.client_type === 'lead').length,
@@ -153,9 +152,8 @@ export default function ClientsPage() {
         });
       }
       
-      // Tags - optional, may not exist in all schemas
-      const { data: tagsData } = await supabase.from('tags').select('id, name, color').order('name');
-      if (tagsData) setTags(tagsData);
+      const tagsRes = await schemaSelect(teamSchema, 'tags', { select: 'id, name, color', order: { column: 'name', ascending: true } });
+      if (tagsRes.data) setTags(tagsRes.data as any[]);
     } catch (err) {
       console.error('Error loading reference data:', err);
     }
@@ -164,143 +162,116 @@ export default function ClientsPage() {
   async function loadClients() {
     setLoading(true);
     try {
-    // Simple query without cross-schema joins
-    let query = supabase
-      .from('clients')
-      .select('*')
-      .order(filters.sort_by, { ascending: filters.sort_order === 'asc' })
-      .limit(200);
+    const queryFilters: Record<string, any> = {};
+    const queryGte: Record<string, any> = {};
+    const queryLte: Record<string, any> = {};
 
-    if (filters.client_type !== 'all') {
-      query = query.eq('client_type', filters.client_type);
-    }
-    
-    if (filters.status) {
-      query = query.eq('status', filters.status);
-    }
-    
-    if (filters.city_id) {
-      query = query.eq('city_id', filters.city_id);
-    }
-    
-    if (filters.manager_id) {
-      query = query.eq('manager_id', filters.manager_id);
-    }
-    
-    if (filters.last_activity_from) {
-      query = query.gte('last_activity_at', filters.last_activity_from);
-    }
-    
-    if (filters.last_activity_to) {
-      query = query.lte('last_activity_at', filters.last_activity_to + 'T23:59:59');
+    if (filters.client_type !== 'all') queryFilters.client_type = filters.client_type;
+    if (filters.status) queryFilters.status = filters.status;
+    if (filters.city_id) queryFilters.city_id = filters.city_id;
+    if (filters.manager_id) queryFilters.manager_id = filters.manager_id;
+    if (filters.last_activity_from) queryGte.last_activity_at = filters.last_activity_from;
+    if (filters.last_activity_to) queryLte.last_activity_at = filters.last_activity_to + 'T23:59:59';
+
+    const { data, error } = await schemaSelect<any[]>(teamSchema, 'clients', {
+      filters: Object.keys(queryFilters).length > 0 ? queryFilters : undefined,
+      filtersGte: Object.keys(queryGte).length > 0 ? queryGte : undefined,
+      filtersLte: Object.keys(queryLte).length > 0 ? queryLte : undefined,
+      order: { column: filters.sort_by, ascending: filters.sort_order === 'asc' },
+      limit: 200,
+    });
+
+    if (error) {
+      console.error('Error loading clients:', error);
+      setClients([]);
+      setLoading(false);
+      return;
     }
 
-    const { data, error } = await query;
-    
-    // Load city and source names separately
     let citiesMap: Record<string, string> = {};
     let sourcesMap: Record<string, string> = {};
-    
+
     if (data && data.length > 0) {
-      const cityIds = [...new Set(data.map(c => c.city_id).filter(Boolean))];
-      const sourceIds = [...new Set(data.map(c => c.source_id).filter(Boolean))];
-      
-      if (cityIds.length > 0) {
-        const { data: citiesData } = await supabase
-          .from('cities')
-          .select('id, name')
-          .in('id', cityIds);
-        if (citiesData) {
-          citiesData.forEach(c => { citiesMap[c.id] = c.name; });
-        }
-      }
-      
-      if (sourceIds.length > 0) {
-        const { data: sourcesData } = await supabase
-          .from('lead_sources')
-          .select('id, name')
-          .in('id', sourceIds);
-        if (sourcesData) {
-          sourcesData.forEach(s => { sourcesMap[s.id] = s.name; });
-        }
-      }
+      const cityIds = [...new Set(data.map((c: any) => c.city_id).filter(Boolean))];
+      const sourceIds = [...new Set(data.map((c: any) => c.source_id).filter(Boolean))];
+
+      const [citiesRes, sourcesRes] = await Promise.all([
+        cityIds.length > 0
+          ? schemaSelect(teamSchema, 'cities', { select: 'id, name', filtersIn: { id: cityIds } })
+          : { data: null },
+        sourceIds.length > 0
+          ? schemaSelect(teamSchema, 'lead_sources', { select: 'id, name', filtersIn: { id: sourceIds } })
+          : { data: null },
+      ]);
+
+      if (citiesRes.data) (citiesRes.data as any[]).forEach((c: any) => { citiesMap[c.id] = c.name; });
+      if (sourcesRes.data) (sourcesRes.data as any[]).forEach((s: any) => { sourcesMap[s.id] = s.name; });
     }
-    
+
     if (data) {
-      // Enrich clients with city and source names
       data.forEach((c: any) => {
-        if (c.city_id && citiesMap[c.city_id]) {
-          c.city = { name: citiesMap[c.city_id] };
-        }
-        if (c.source_id && sourcesMap[c.source_id]) {
-          c.source = { name: sourcesMap[c.source_id] };
-        }
+        if (c.city_id && citiesMap[c.city_id]) c.city = { name: citiesMap[c.city_id] };
+        if (c.source_id && sourcesMap[c.source_id]) c.source = { name: sourcesMap[c.source_id] };
       });
-      
-      // Load tags for clients (optional - may not exist)
-      const clientIds = data.map(c => c.id);
+
+      const clientIds = data.map((c: any) => c.id);
       let clientTags: any[] | null = null;
       if (clientIds.length > 0) {
         try {
-          const { data: tagsResult } = await supabase
-            .from('client_tags')
-            .select('client_id, tag:tags(id, name, color)')
-            .in('client_id', clientIds);
-          clientTags = tagsResult;
-        } catch (e) {
-          // Tags table may not exist in this schema
-        }
-        
-        // Merge tags into clients
-        const clientsWithTags = data.map(client => ({
-          ...client,
-          tags: clientTags?.filter(ct => ct.client_id === client.id).map(ct => {
-            const t = Array.isArray(ct.tag) ? ct.tag[0] : ct.tag;
-            return t;
-          }).filter(Boolean) || []
-        }));
-        
-        // Filter by tags if needed (client-side due to complex logic)
-        let filteredData = clientsWithTags;
-        
-        if (filters.tag_ids.length > 0) {
-          if (filters.filter_logic === 'and') {
-            filteredData = filteredData.filter(c => 
-              filters.tag_ids.every(tagId => c.tags?.some((t: { id: string }) => t?.id === tagId))
-            );
-          } else {
-            filteredData = filteredData.filter(c => 
-              filters.tag_ids.some(tagId => c.tags?.some((t: { id: string }) => t?.id === tagId))
-            );
-          }
-        }
-        
-        // Filter by events (need separate query)
-        if (filters.event_ids.length > 0) {
-          const { data: dealsWithEvents } = await supabase
-            .from('deals')
-            .select('client_id')
-            .in('event_id', filters.event_ids);
-          
-          const clientIdsWithEvents = Array.from(new Set(dealsWithEvents?.map(d => d.client_id) || []));
-          
-          if (filters.filter_logic === 'and' && filters.tag_ids.length > 0) {
-            filteredData = filteredData.filter(c => clientIdsWithEvents.includes(c.id));
-          } else if (filters.filter_logic === 'or' && filters.tag_ids.length > 0) {
-            const existingIds = new Set(filteredData.map(c => c.id));
-            const additionalClients = clientsWithTags.filter(c => 
-              clientIdsWithEvents.includes(c.id) && !existingIds.has(c.id)
-            );
-            filteredData = [...filteredData, ...additionalClients];
-          } else {
-            filteredData = filteredData.filter(c => clientIdsWithEvents.includes(c.id));
-          }
-        }
-        
-        setClients(filteredData);
-      } else {
-        setClients([]);
+          const tagsRes = await schemaSelect(teamSchema, 'client_tags', {
+            select: 'client_id, tag:tags(id, name, color)',
+            filtersIn: { client_id: clientIds },
+          });
+          clientTags = tagsRes.data as any[];
+        } catch (e) {}
       }
+
+      const clientsWithTags = data.map((client: any) => ({
+        ...client,
+        tags: clientTags?.filter(ct => ct.client_id === client.id).map(ct => {
+          const t = Array.isArray(ct.tag) ? ct.tag[0] : ct.tag;
+          return t;
+        }).filter(Boolean) || []
+      }));
+
+      let filteredData = clientsWithTags;
+
+      if (filters.tag_ids.length > 0) {
+        if (filters.filter_logic === 'and') {
+          filteredData = filteredData.filter(c =>
+            filters.tag_ids.every(tagId => c.tags?.some((t: { id: string }) => t?.id === tagId))
+          );
+        } else {
+          filteredData = filteredData.filter(c =>
+            filters.tag_ids.some(tagId => c.tags?.some((t: { id: string }) => t?.id === tagId))
+          );
+        }
+      }
+
+      if (filters.event_ids.length > 0) {
+        const dealsRes = await schemaSelect(teamSchema, 'deals', {
+          select: 'client_id',
+          filtersIn: { event_id: filters.event_ids },
+        });
+
+        const clientIdsWithEvents = Array.from(new Set((dealsRes.data as any[])?.map((d: any) => d.client_id) || []));
+
+        if (filters.filter_logic === 'and' && filters.tag_ids.length > 0) {
+          filteredData = filteredData.filter(c => clientIdsWithEvents.includes(c.id));
+        } else if (filters.filter_logic === 'or' && filters.tag_ids.length > 0) {
+          const existingIds = new Set(filteredData.map(c => c.id));
+          const additionalClients = clientsWithTags.filter(c =>
+            clientIdsWithEvents.includes(c.id) && !existingIds.has(c.id)
+          );
+          filteredData = [...filteredData, ...additionalClients];
+        } else {
+          filteredData = filteredData.filter(c => clientIdsWithEvents.includes(c.id));
+        }
+      }
+
+      setClients(filteredData);
+    } else {
+      setClients([]);
     }
     } catch (err) {
       console.error('Error loading clients:', err);

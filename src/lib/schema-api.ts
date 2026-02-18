@@ -1,5 +1,5 @@
 /**
- * Client-side utility for writing to schema tables via the server API.
+ * Client-side utility for reading/writing schema tables via the server API.
  * Uses service_role key on the server to bypass RLS/permissions.
  */
 
@@ -10,9 +10,16 @@ interface SchemaWriteOptions {
   data?: any;
   filters?: Record<string, any>;
   filtersIn?: Record<string, any[]>;
+  filtersGte?: Record<string, any>;
+  filtersLte?: Record<string, any>;
+  filtersNeq?: Record<string, any>;
+  filtersIlike?: Record<string, string>;
+  filtersNotNull?: string[];
+  filtersIsNull?: string[];
   select?: string;
-  order?: { column: string; ascending?: boolean };
+  order?: { column: string; ascending?: boolean } | { column: string; ascending?: boolean }[];
   limit?: number;
+  single?: boolean;
 }
 
 interface SchemaWriteResult<T = any> {
@@ -40,9 +47,6 @@ export async function schemaWrite<T = any>(options: SchemaWriteOptions): Promise
   }
 }
 
-/**
- * Insert one or more rows into a schema table.
- */
 export async function schemaInsert<T = any>(
   schema: string,
   table: string,
@@ -52,9 +56,6 @@ export async function schemaInsert<T = any>(
   return schemaWrite<T>({ schema, table, action: 'insert', data, select });
 }
 
-/**
- * Update rows in a schema table.
- */
 export async function schemaUpdate<T = any>(
   schema: string,
   table: string,
@@ -65,13 +66,50 @@ export async function schemaUpdate<T = any>(
   return schemaWrite<T>({ schema, table, action: 'update', data, filters, select });
 }
 
-/**
- * Delete rows from a schema table.
- */
 export async function schemaDelete(
   schema: string,
   table: string,
   filters: Record<string, any>
 ): Promise<SchemaWriteResult> {
   return schemaWrite({ schema, table, action: 'delete', filters });
+}
+
+/**
+ * Select rows from a schema table (server-side, bypasses RLS).
+ */
+export async function schemaSelect<T = any>(
+  schema: string,
+  table: string,
+  options?: {
+    select?: string;
+    filters?: Record<string, any>;
+    filtersIn?: Record<string, any[]>;
+    filtersGte?: Record<string, any>;
+    filtersLte?: Record<string, any>;
+    filtersNeq?: Record<string, any>;
+    filtersIlike?: Record<string, string>;
+    filtersNotNull?: string[];
+    filtersIsNull?: string[];
+    order?: { column: string; ascending?: boolean } | { column: string; ascending?: boolean }[];
+    limit?: number;
+    single?: boolean;
+  }
+): Promise<SchemaWriteResult<T>> {
+  return schemaWrite<T>({
+    schema,
+    table,
+    action: 'select',
+    select: options?.select,
+    filters: options?.filters,
+    filtersIn: options?.filtersIn,
+    filtersGte: options?.filtersGte,
+    filtersLte: options?.filtersLte,
+    filtersNeq: options?.filtersNeq,
+    filtersIlike: options?.filtersIlike,
+    filtersNotNull: options?.filtersNotNull,
+    filtersIsNull: options?.filtersIsNull,
+    order: options?.order,
+    limit: options?.limit,
+    single: options?.single,
+  });
 }

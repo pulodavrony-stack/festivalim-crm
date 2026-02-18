@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { useTeam } from '@/components/providers/TeamProvider';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 import Tooltip from '@/components/ui/Tooltip';
-import { schemaInsert, schemaUpdate, schemaDelete } from '@/lib/schema-api';
+import { schemaInsert, schemaUpdate, schemaDelete, schemaSelect } from '@/lib/schema-api';
 import ClientEditModal from './ClientEditModal';
 import QuickAddContact from './QuickAddContact';
 import ComposeEmailModal from '@/components/email/ComposeEmailModal';
@@ -113,7 +113,6 @@ const clientTypeLabels = {
 };
 
 export default function ClientQuickView({ clientId, isOpen, onClose, position = 'right', onOpenMessenger }: ClientQuickViewProps) {
-  const supabase = useSchemaClient();
   const { teamSchema } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -144,45 +143,41 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
     setLoadError(null);
     
     try {
-      // Load client (without cross-schema joins)
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', clientId)
-        .single();
+      const { data: clientData, error: clientError } = await schemaSelect(teamSchema, 'clients', {
+        filters: { id: clientId },
+        single: true,
+      });
       
-      if (clientError) {
+      if (clientError || !clientData) {
         console.error('[ClientQuickView] Error loading client:', clientError);
         setLoadError('Не удалось загрузить контакт');
         setLoading(false);
         return;
       }
       
-      setClient(clientData);
+      setClient(clientData as any);
       
-      // Load deals with stages
-      const { data: dealsData } = await supabase
-        .from('deals')
-        .select('*, stage:pipeline_stages(name, color)')
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
-      if (dealsData) setDeals(dealsData);
+      const [dealsRes, activitiesRes] = await Promise.all([
+        schemaSelect(teamSchema, 'deals', {
+          select: '*, stage:pipeline_stages(name, color)',
+          filters: { client_id: clientId },
+          order: { column: 'created_at', ascending: false },
+        }),
+        schemaSelect(teamSchema, 'activities', {
+          filters: { client_id: clientId },
+          order: { column: 'created_at', ascending: false },
+          limit: 15,
+        }),
+      ]);
       
-      // Load activities
-      const { data: activitiesData } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false })
-        .limit(15);
-      if (activitiesData) setActivities(activitiesData);
+      if (dealsRes.data) setDeals(dealsRes.data as any[]);
+      if (activitiesRes.data) setActivities(activitiesRes.data as any[]);
       
     } catch (err) {
       console.error('[ClientQuickView] Unexpected error:', err);
       setLoadError('Произошла ошибка загрузки');
     }
     
-    // Reset optional data
     setTags([]);
     setPitches([]);
     setAvailableEvents([]);

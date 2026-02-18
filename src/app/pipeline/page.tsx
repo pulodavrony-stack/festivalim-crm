@@ -13,8 +13,9 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
+import { schemaSelect, schemaUpdate } from '@/lib/schema-api';
 import { PipelineColumn } from '@/components/pipeline/PipelineColumn';
 import { DealCard } from '@/components/pipeline/DealCard';
 import ClientQuickView from '@/components/clients/ClientQuickView';
@@ -86,7 +87,6 @@ interface Filters {
 }
 
 function PipelinePage() {
-  const supabase = useSchemaClient();
   const { teamSchema, isLoading: teamLoading, managerId: currentManagerId, isAdmin } = useTeam();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [activePipeline, setActivePipeline] = useState<string>('');
@@ -221,60 +221,52 @@ function PipelinePage() {
     const publicClient = getPublicClient();
     const [managersResult, showsResult, citiesResult] = await Promise.all([
       publicClient.from('managers').select('id, full_name').eq('is_active', true).order('full_name'),
-      supabase.from('shows').select('id, title').eq('is_active', true).order('title'),
-      supabase.from('cities').select('id, name').eq('is_active', true).order('name'),
+      schemaSelect(teamSchema, 'shows', { select: 'id, title', filters: { is_active: true }, order: { column: 'title', ascending: true } }),
+      schemaSelect(teamSchema, 'cities', { select: 'id, name', filters: { is_active: true }, order: { column: 'name', ascending: true } }),
     ]);
     if (managersResult.data) setManagers(managersResult.data);
-    if (showsResult.data) setShows(showsResult.data);
-    if (citiesResult.data) setCities(citiesResult.data);
+    if (showsResult.data) setShows(showsResult.data as any[]);
+    if (citiesResult.data) setCities(citiesResult.data as any[]);
   }
 
   async function loadPipelines() {
-    const { data } = await supabase
-      .from('pipelines')
-      .select('*')
-      .lt('sort_order', 10) // Только активные воронки (sort_order < 10)
-      .order('sort_order');
-    
-    if (data && data.length > 0) {
-      setPipelines(data);
-      // Выбираем воронку по умолчанию или первую
-      const defaultPipeline = data.find(p => p.is_default) || data[0];
-      setActivePipeline(defaultPipeline.id);
+    const { data } = await schemaSelect(teamSchema, 'pipelines', {
+      order: { column: 'sort_order', ascending: true },
+    });
+
+    if (data && (data as any[]).length > 0) {
+      const filtered = (data as any[]).filter((p: any) => (p.sort_order || 0) < 10);
+      setPipelines(filtered);
+      const defaultPipeline = filtered.find((p: any) => p.is_default) || filtered[0];
+      if (defaultPipeline) setActivePipeline(defaultPipeline.id);
     }
     setLoading(false);
   }
 
   async function loadStagesAndDeals() {
     const [stagesResult, dealsResult] = await Promise.all([
-      supabase
-        .from('pipeline_stages')
-        .select('*')
-        .eq('pipeline_id', activePipeline)
-        .order('sort_order'),
-      supabase
-        .from('deals')
-        .select(`
-          *,
-          client:clients(id, full_name, phone, client_type, city_id, manager_id),
-          event:events(id, event_date, show:shows(id, title))
-        `)
-        .eq('pipeline_id', activePipeline)
-        .in('status', ['active', 'won', 'lost'])
-        .order('created_at', { ascending: false }),
+      schemaSelect(teamSchema, 'pipeline_stages', {
+        filters: { pipeline_id: activePipeline },
+        order: { column: 'sort_order', ascending: true },
+      }),
+      schemaSelect(teamSchema, 'deals', {
+        select: '*, client:clients(id, full_name, phone, client_type, city_id, manager_id), event:events(id, event_date, show:shows(id, title))',
+        filters: { pipeline_id: activePipeline },
+        filtersIn: { status: ['active', 'won', 'lost'] },
+        order: { column: 'created_at', ascending: false },
+      }),
     ]);
 
-    if (stagesResult.data) setStages(stagesResult.data);
-    
-    // For non-admins, filter by deal's manager_id OR client's manager_id
-    let dealsData = dealsResult.data || [];
+    if (stagesResult.data) setStages(stagesResult.data as any[]);
+
+    let dealsData = (dealsResult.data || []) as any[];
     if (!isAdmin && currentManagerId) {
-      dealsData = dealsData.filter(deal => 
-        deal.manager_id === currentManagerId || 
+      dealsData = dealsData.filter((deal: any) =>
+        deal.manager_id === currentManagerId ||
         (deal.client as any)?.manager_id === currentManagerId
       );
     }
-    
+
     setDeals(dealsData);
   }
 
@@ -361,11 +353,7 @@ function PipelinePage() {
       prev.map((d) => d.id === draggedDealId ? { ...d, stage_id: targetStageId! } : d)
     );
 
-    const { error } = await supabase
-      .from('deals')
-      .update({ stage_id: targetStageId })
-      .eq('id', draggedDealId)
-      .select();
+    const { error } = await schemaUpdate(teamSchema, 'deals', { stage_id: targetStageId }, { id: draggedDealId });
 
     if (error) {
       console.error('Deal move error:', error);

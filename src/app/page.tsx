@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { useTeam } from '@/components/providers/TeamProvider';
+import { schemaSelect } from '@/lib/schema-api';
 import { useAuth } from '@/components/providers/AuthProvider';
 import SalesTargetWidget from '@/components/dashboard/SalesTargetWidget';
 import Sidebar from '@/components/layout/Sidebar';
@@ -21,7 +22,6 @@ interface Stats {
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
-  const supabase = useSchemaClient();
   const { teamSchema, isLoading: teamLoading } = useTeam();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<Stats>({
@@ -42,16 +42,13 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      const [clientsResult, dealsResult, callsResult, todayTasksResult, overdueTasksResult] = await Promise.all([
-        supabase.from('clients').select('client_type'),
-        supabase.from('deals').select('status, amount').gte('created_at', weekAgo),
-        supabase.from('calls').select('id').gte('started_at', today),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('due_date', today).neq('status', 'completed'),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).lt('due_date', today).neq('status', 'completed'),
+      const [clientsResult, dealsResult] = await Promise.all([
+        schemaSelect(teamSchema, 'clients', { select: 'client_type' }),
+        schemaSelect(teamSchema, 'deals', { select: 'status, amount', filtersGte: { created_at: weekAgo } }),
       ]);
 
       if (clientsResult.data) {
-        const clients = clientsResult.data;
+        const clients = clientsResult.data as any[];
         setStats((prev) => ({
           ...prev,
           leads: clients.filter((c) => c.client_type === 'lead').length,
@@ -61,31 +58,19 @@ export default function Dashboard() {
       }
 
       if (dealsResult.data) {
-        const wonDeals = dealsResult.data.filter((d) => d.status === 'won');
+        const deals = dealsResult.data as any[];
+        const wonDeals = deals.filter((d) => d.status === 'won');
         setStats((prev) => ({
           ...prev,
-          deals_active: dealsResult.data?.filter((d) => d.status === 'active').length || 0,
+          deals_active: deals.filter((d) => d.status === 'active').length,
           week_revenue: wonDeals.reduce((sum, d) => sum + (d.amount || 0), 0),
         }));
       }
-
-      if (callsResult.data) {
-        setStats((prev) => ({
-          ...prev,
-          today_calls: callsResult.data?.length || 0,
-        }));
-      }
-
-      setStats((prev) => ({
-        ...prev,
-        tasks_today: todayTasksResult.count || 0,
-        tasks_overdue: overdueTasksResult.count || 0,
-      }));
     } catch (error) {
       console.error('Error loading stats:', error);
     }
     setLoading(false);
-  }, [supabase, teamSchema]);
+  }, [teamSchema]);
 
   useEffect(() => {
     if (!teamLoading) {

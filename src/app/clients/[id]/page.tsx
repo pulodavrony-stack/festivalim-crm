@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
-import { schemaInsert, schemaUpdate, schemaDelete } from '@/lib/schema-api';
+import { schemaInsert, schemaUpdate, schemaDelete, schemaSelect, schemaWrite } from '@/lib/schema-api';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 import ComposeEmailModal from '@/components/email/ComposeEmailModal';
@@ -125,7 +125,6 @@ export default function ClientPageWrapper() {
 function ClientPage() {
   const params = useParams();
   const router = useRouter();
-  const supabase = useSchemaClient();
   const { isLoading: teamLoading, teamSchema } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -169,12 +168,11 @@ function ClientPage() {
   }, [params.id, teamLoading]);
 
   async function loadAdditionalContacts() {
-    const { data } = await supabase
-      .from('client_contacts')
-      .select('*')
-      .eq('client_id', params.id)
-      .order('created_at');
-    if (data) setAdditionalContacts(data);
+    const { data } = await schemaSelect(teamSchema, 'client_contacts', {
+      filters: { client_id: params.id as string },
+      order: { column: 'created_at', ascending: true },
+    });
+    if (data) setAdditionalContacts(data as any[]);
   }
 
   async function saveAdditionalContact() {
@@ -261,12 +259,7 @@ function ClientPage() {
     await schemaUpdate(teamSchema, 'clients', { manager_id: managerId }, { id: client.id });
 
     if (managerId) {
-      // Need to use supabase for complex filter (status = active AND client_id = x)
-      await supabase
-        .from('deals')
-        .update({ manager_id: managerId })
-        .eq('client_id', client.id)
-        .eq('status', 'active');
+      await schemaUpdate(teamSchema, 'deals', { manager_id: managerId }, { client_id: client.id, status: 'active' });
     }
 
     const managerName = managers.find(m => m.id === managerId)?.full_name || 'Не назначен';
@@ -281,74 +274,54 @@ function ClientPage() {
 
   async function loadClient() {
     try {
-      // Load client without complex joins that may fail across schemas
-      const clientResult = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', params.id)
-        .single();
+      const clientResult = await schemaSelect(teamSchema, 'clients', {
+        filters: { id: params.id as string },
+        single: true,
+      });
 
-      if (clientResult.error) {
+      if (clientResult.error || !clientResult.data) {
         console.error('Error loading client:', clientResult.error);
         setLoading(false);
         return;
       }
 
-      if (clientResult.data) {
-        // Separately load city and source names
-        const clientData = { ...clientResult.data } as any;
-        
-        if (clientData.city_id) {
-          const { data: cityData } = await supabase
-            .from('cities')
-            .select('name')
-            .eq('id', clientData.city_id)
-            .single();
-          if (cityData) clientData.city = cityData;
-        }
+      const clientData = { ...clientResult.data } as any;
 
-        if (clientData.source_id) {
-          const { data: sourceData } = await supabase
-            .from('lead_sources')
-            .select('name')
-            .eq('id', clientData.source_id)
-            .single();
-          if (sourceData) clientData.source = sourceData;
-        }
-
-        setClient(clientData);
+      if (clientData.city_id) {
+        const { data: cityData } = await schemaSelect(teamSchema, 'cities', {
+          select: 'name',
+          filters: { id: clientData.city_id },
+          single: true,
+        });
+        if (cityData) clientData.city = cityData;
       }
 
-      // Load activities
-      const { data: activitiesData } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('client_id', params.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (activitiesData) setActivities(activitiesData);
-
-      // Load deals - try with joins first, fallback to simple query
-      let dealsData = null;
-      const dealsWithJoins = await supabase
-        .from('deals')
-        .select('*, stage:pipeline_stages(name, color)')
-        .eq('client_id', params.id)
-        .order('created_at', { ascending: false });
-      
-      if (dealsWithJoins.data) {
-        dealsData = dealsWithJoins.data;
-      } else {
-        // Fallback: simple deals query without joins
-        const simpleDealResult = await supabase
-          .from('deals')
-          .select('*')
-          .eq('client_id', params.id)
-          .order('created_at', { ascending: false });
-        if (simpleDealResult.data) dealsData = simpleDealResult.data;
+      if (clientData.source_id) {
+        const { data: sourceData } = await schemaSelect(teamSchema, 'lead_sources', {
+          select: 'name',
+          filters: { id: clientData.source_id },
+          single: true,
+        });
+        if (sourceData) clientData.source = sourceData;
       }
-      
-      if (dealsData) setDeals(dealsData);
+
+      setClient(clientData);
+
+      const [activitiesRes, dealsRes] = await Promise.all([
+        schemaSelect(teamSchema, 'activities', {
+          filters: { client_id: params.id as string },
+          order: { column: 'created_at', ascending: false },
+          limit: 50,
+        }),
+        schemaSelect(teamSchema, 'deals', {
+          select: '*, stage:pipeline_stages(name, color)',
+          filters: { client_id: params.id as string },
+          order: { column: 'created_at', ascending: false },
+        }),
+      ]);
+
+      if (activitiesRes.data) setActivities(activitiesRes.data as any[]);
+      if (dealsRes.data) setDeals(dealsRes.data as any[]);
     } catch (err) {
       console.error('Error in loadClient:', err);
     } finally {
