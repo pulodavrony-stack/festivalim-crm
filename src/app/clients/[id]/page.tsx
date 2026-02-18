@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
+import { schemaInsert, schemaUpdate, schemaDelete } from '@/lib/schema-api';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 import ComposeEmailModal from '@/components/email/ComposeEmailModal';
@@ -125,7 +126,7 @@ function ClientPage() {
   const params = useParams();
   const router = useRouter();
   const supabase = useSchemaClient();
-  const { isLoading: teamLoading } = useTeam();
+  const { isLoading: teamLoading, teamSchema } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -179,15 +180,15 @@ function ClientPage() {
   async function saveAdditionalContact() {
     if (!contactForm.full_name.trim()) return;
     if (editingContactId) {
-      await supabase.from('client_contacts').update({
+      await schemaUpdate(teamSchema, 'client_contacts', {
         full_name: contactForm.full_name,
         position: contactForm.position || null,
         phone: contactForm.phone || null,
         email: contactForm.email || null,
         comments: contactForm.comments || null,
-      }).eq('id', editingContactId);
+      }, { id: editingContactId });
     } else {
-      await supabase.from('client_contacts').insert({
+      await schemaInsert(teamSchema, 'client_contacts', {
         client_id: params.id,
         full_name: contactForm.full_name,
         position: contactForm.position || null,
@@ -203,7 +204,7 @@ function ClientPage() {
   }
 
   async function deleteAdditionalContact(id: string) {
-    await supabase.from('client_contacts').delete().eq('id', id);
+    await schemaDelete(teamSchema, 'client_contacts', { id });
     loadAdditionalContacts();
   }
 
@@ -233,41 +234,34 @@ function ClientPage() {
   async function saveEdit() {
     if (!client) return;
     const normalized = editData.phone.replace(/[^\d]/g, '');
-    await supabase
-      .from('clients')
-      .update({
-        full_name: editData.full_name,
-        phone: editData.phone || null,
-        phone_normalized: normalized || null,
-        email: editData.email || null,
-        telegram_username: editData.telegram_username || null,
-        whatsapp_phone: editData.whatsapp_phone || null,
-        notes: editData.notes || null,
-      })
-      .eq('id', client.id);
+    await schemaUpdate(teamSchema, 'clients', {
+      full_name: editData.full_name,
+      phone: editData.phone || null,
+      phone_normalized: normalized || null,
+      email: editData.email || null,
+      telegram_username: editData.telegram_username || null,
+      whatsapp_phone: editData.whatsapp_phone || null,
+      notes: editData.notes || null,
+    }, { id: client.id });
     setIsEditing(false);
     loadClient();
   }
 
   async function deleteClient() {
     if (!client) return;
-    // Delete related data first
-    await supabase.from('deals').delete().eq('client_id', client.id);
-    await supabase.from('activities').delete().eq('client_id', client.id);
-    await supabase.from('clients').delete().eq('id', client.id);
+    await schemaDelete(teamSchema, 'deals', { client_id: client.id });
+    await schemaDelete(teamSchema, 'activities', { client_id: client.id });
+    await schemaDelete(teamSchema, 'clients', { id: client.id });
     router.push('/clients');
   }
 
   async function assignManager(managerId: string | null) {
     if (!client) return;
-    
-    await supabase
-      .from('clients')
-      .update({ manager_id: managerId })
-      .eq('id', client.id);
 
-    // Also update all active deals for this client
+    await schemaUpdate(teamSchema, 'clients', { manager_id: managerId }, { id: client.id });
+
     if (managerId) {
+      // Need to use supabase for complex filter (status = active AND client_id = x)
       await supabase
         .from('deals')
         .update({ manager_id: managerId })
@@ -276,7 +270,7 @@ function ClientPage() {
     }
 
     const managerName = managers.find(m => m.id === managerId)?.full_name || 'Не назначен';
-    await supabase.from('activities').insert({
+    await schemaInsert(teamSchema, 'activities', {
       client_id: client.id,
       activity_type: 'note',
       content: `Назначен менеджер: ${managerName}`,
@@ -365,7 +359,7 @@ function ClientPage() {
   async function addNote() {
     if (!newNote.trim() || !client) return;
 
-    await supabase.from('activities').insert({
+    await schemaInsert(teamSchema, 'activities', {
       client_id: client.id,
       activity_type: 'note',
       content: newNote,
@@ -378,12 +372,9 @@ function ClientPage() {
   async function updateClientType(newType: 'lead' | 'pk' | 'kb') {
     if (!client) return;
 
-    await supabase
-      .from('clients')
-      .update({ client_type: newType })
-      .eq('id', client.id);
+    await schemaUpdate(teamSchema, 'clients', { client_type: newType }, { id: client.id });
 
-    await supabase.from('activities').insert({
+    await schemaInsert(teamSchema, 'activities', {
       client_id: client.id,
       activity_type: 'type_change',
       content: `Тип изменён на ${clientTypeLabels[newType].label}`,

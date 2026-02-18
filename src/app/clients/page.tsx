@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
+import { schemaWrite } from '@/lib/schema-api';
 import Tooltip from '@/components/ui/Tooltip';
 
 interface Client {
@@ -327,21 +328,9 @@ export default function ClientsPage() {
 
   async function bulkAssignManager(managerId: string) {
     if (selectedClients.size === 0) return;
-    
     const ids = Array.from(selectedClients);
-    
-    // Update clients
-    await supabase
-      .from('clients')
-      .update({ manager_id: managerId })
-      .in('id', ids);
 
-    // Update active deals
-    await supabase
-      .from('deals')
-      .update({ manager_id: managerId })
-      .in('client_id', ids)
-      .eq('status', 'active');
+    await schemaWrite({ schema: teamSchema, table: 'clients', action: 'update', data: { manager_id: managerId }, filtersIn: { id: ids } });
 
     setSelectedClients(new Set());
     setShowAssignModal(false);
@@ -351,12 +340,11 @@ export default function ClientsPage() {
   async function bulkDeleteClients() {
     if (selectedClients.size === 0) return;
     if (!confirm(`Удалить ${selectedClients.size} контактов? Это действие нельзя отменить.`)) return;
-    
     const ids = Array.from(selectedClients);
-    
-    await supabase.from('deals').delete().in('client_id', ids);
-    await supabase.from('activities').delete().in('client_id', ids);
-    await supabase.from('clients').delete().in('id', ids);
+
+    await schemaWrite({ schema: teamSchema, table: 'deals', action: 'delete', filtersIn: { client_id: ids } });
+    await schemaWrite({ schema: teamSchema, table: 'activities', action: 'delete', filtersIn: { client_id: ids } });
+    await schemaWrite({ schema: teamSchema, table: 'clients', action: 'delete', filtersIn: { id: ids } });
 
     setSelectedClients(new Set());
     loadClients();
@@ -365,18 +353,13 @@ export default function ClientsPage() {
 
   async function bulkAssignTags() {
     if (selectedClients.size === 0 || selectedTagsForBulk.size === 0) return;
-    
     const clientIds = Array.from(selectedClients);
     const tagIds = Array.from(selectedTagsForBulk);
-    
-    // Create client_tags entries (ignore duplicates)
-    const entries = clientIds.flatMap(clientId => 
+    const entries = clientIds.flatMap(clientId =>
       tagIds.map(tagId => ({ client_id: clientId, tag_id: tagId }))
     );
-    
-    await supabase
-      .from('client_tags')
-      .upsert(entries, { onConflict: 'client_id,tag_id', ignoreDuplicates: true });
+
+    await schemaWrite({ schema: teamSchema, table: 'client_tags', action: 'upsert', data: entries });
 
     setSelectedClients(new Set());
     setSelectedTagsForBulk(new Set());
@@ -386,15 +369,10 @@ export default function ClientsPage() {
 
   async function bulkRemoveTags() {
     if (selectedClients.size === 0 || selectedTagsForBulk.size === 0) return;
-    
     const clientIds = Array.from(selectedClients);
     const tagIds = Array.from(selectedTagsForBulk);
-    
-    await supabase
-      .from('client_tags')
-      .delete()
-      .in('client_id', clientIds)
-      .in('tag_id', tagIds);
+
+    await schemaWrite({ schema: teamSchema, table: 'client_tags', action: 'delete', filtersIn: { client_id: clientIds, tag_id: tagIds } });
 
     setSelectedClients(new Set());
     setSelectedTagsForBulk(new Set());

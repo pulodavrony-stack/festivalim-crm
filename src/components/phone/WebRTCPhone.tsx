@@ -42,22 +42,27 @@ export default function WebRTCPhone({
 
     async function initSoftphone() {
       try {
-        // Получаем WebRTC токен из env
         const token = (window as any).__UIS_WEBRTC_TOKEN || 
                       process.env.NEXT_PUBLIC_UIS_WEBRTC_TOKEN;
         
         if (!token) {
-          console.log('[Softphone] No WebRTC token, falling back to JsSIP');
+          console.log('[Softphone] No WebRTC token, trying JsSIP');
           initJsSIP();
           return;
         }
 
-        const SoftphoneModule = await import('@novosystem/softphone-core');
+        let SoftphoneModule: any;
+        try {
+          SoftphoneModule = await import('@novosystem/softphone-core');
+        } catch (importErr) {
+          console.warn('[Softphone] Module not available, falling back to JsSIP');
+          initJsSIP();
+          return;
+        }
         const Softphone = SoftphoneModule.default || SoftphoneModule;
 
         if (!mounted) return;
 
-        // Включаем режим отладки для диагностики
         Softphone.debug();
         
         console.log('[Softphone] Creating with token...');
@@ -66,10 +71,20 @@ export default function WebRTCPhone({
           shouldPlayCallEndingSignal: true,
         });
 
-        // Обработчики событий
+        // Timeout: if not registered in 15s, fallback to JsSIP
+        const registrationTimeout = setTimeout(() => {
+          if (mounted && !softphoneRef.current?._isRegistered) {
+            console.warn('[Softphone] Registration timeout, falling back to JsSIP');
+            try { softphone.destroy(); } catch(e) {}
+            initJsSIP();
+          }
+        }, 15000);
+
         softphone.on('enabled', () => {
           console.log('[Softphone] Ready');
+          clearTimeout(registrationTimeout);
           if (mounted) {
+            (softphoneRef.current as any)._isRegistered = true;
             setIsRegistered(true);
             setIsRegistering(false);
             toast.success('Телефон подключен');
@@ -79,17 +94,17 @@ export default function WebRTCPhone({
         softphone.on('error', (mnemonic: string) => {
           console.error('[Softphone] Error:', mnemonic);
           if (mounted) {
-            if (mnemonic === 'registrationFailed') {
+            if (mnemonic === 'registrationFailed' || mnemonic === 'authorzationFailed' || mnemonic === 'invalidToken') {
+              clearTimeout(registrationTimeout);
               setIsRegistered(false);
               setIsRegistering(false);
-              toast.error('Ошибка регистрации SIP');
+              console.warn('[Softphone] Auth failed, falling back to JsSIP');
+              try { softphone.destroy(); } catch(e) {}
+              initJsSIP();
             } else if (mnemonic === 'microphoneAccessDenied') {
               toast.error('Разрешите доступ к микрофону');
-            } else if (mnemonic === 'authorzationFailed' || mnemonic === 'invalidToken') {
-              setIsRegistered(false);
-              toast.error('Неверный WebRTC токен');
             } else {
-              toast.error(`Ошибка: ${mnemonic}`);
+              toast.error(`Ошибка телефонии: ${mnemonic}`);
             }
           }
         });
@@ -614,7 +629,19 @@ export default function WebRTCPhone({
       {!isRegistered && !isRegistering && callStatus === 'idle' && (
         <div className="p-4 text-center">
           <p className="text-sm text-gray-500 mb-2">Телефон не подключен</p>
-          <p className="text-xs text-gray-400">Ожидание WebRTC токена...</p>
+          <p className="text-xs text-gray-400 mb-3">Попробуйте переподключиться</p>
+          <button
+            onClick={() => {
+              setIsRegistering(true);
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Переподключить
+          </button>
+          <p className="text-xs text-gray-400 mt-3">
+            Для звонков через API используйте<br/>кнопку &quot;Звонок&quot; в карточке контакта
+          </p>
         </div>
       )}
 

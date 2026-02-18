@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { useToast } from '@/components/ui/Toast';
 import Tooltip from '@/components/ui/Tooltip';
+import { schemaInsert } from '@/lib/schema-api';
 
 interface ContactRow {
   id: number;
@@ -30,7 +31,7 @@ interface QuickAddContactProps {
 
 export default function QuickAddContact({ isOpen, onClose, onSuccess, parentClientId, parentName }: QuickAddContactProps) {
   const supabase = useSchemaClient();
-  const { managerId } = useTeam();
+  const { managerId, teamSchema } = useTeam();
   const toast = useToast();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -144,29 +145,28 @@ export default function QuickAddContact({ isOpen, onClose, onSuccess, parentClie
         if (row.position.trim()) notesLines.push(`Должность: ${row.position.trim()}`);
         if (parentClientId && parentName) notesLines.push(`Организация: ${parentName}`);
 
-        const { data: newClient, error } = await supabase
-          .from('clients')
-          .insert({
-            full_name: row.full_name.trim() || `Контакт ${cleanPhone}`,
-            phone: cleanPhone || null,
-            notes: notesLines.length > 0 ? notesLines.join('\n') : null,
-            client_type: 'lead',
-            status: 'new',
-            manager_id: managerId,
-          })
-          .select('id')
-          .single();
-
-        if (error) throw error;
-
-        await supabase.from('activities').insert({
-          client_id: newClient.id,
+        const { data: newClientData, error: insertError } = await schemaInsert(teamSchema, 'clients', {
+          full_name: row.full_name.trim() || `Контакт ${cleanPhone}`,
+          phone: cleanPhone || null,
+          notes: notesLines.length > 0 ? notesLines.join('\n') : null,
+          client_type: 'lead',
+          status: 'new',
           manager_id: managerId,
-          activity_type: 'note',
-          content: parentName
-            ? `Контакт создан через быстрое добавление (${parentName})`
-            : 'Контакт создан через быстрое добавление',
-        });
+        }, 'id');
+
+        if (insertError) throw new Error(insertError);
+
+        const newClientId = Array.isArray(newClientData) ? newClientData[0]?.id : newClientData?.id;
+        if (newClientId) {
+          await schemaInsert(teamSchema, 'activities', {
+            client_id: newClientId,
+            manager_id: managerId,
+            activity_type: 'note',
+            content: parentName
+              ? `Контакт создан через быстрое добавление (${parentName})`
+              : 'Контакт создан через быстрое добавление',
+          });
+        }
 
         setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'saved' } : r));
         saved++;

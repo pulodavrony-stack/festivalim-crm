@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSchemaClient } from '@/components/providers/TeamProvider';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import { getPublicClient } from '@/lib/supabase-schema';
+import { schemaInsert, schemaUpdate, schemaDelete } from '@/lib/schema-api';
 
 interface Client {
   id: string;
@@ -53,6 +54,7 @@ interface ClientEditModalProps {
 
 export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: ClientEditModalProps) {
   const supabase = useSchemaClient();
+  const { teamSchema } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -130,23 +132,14 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
 
   async function handleAddTag(tagId: string) {
     if (clientTags.includes(tagId)) return;
-    
-    const { error } = await supabase
-      .from('client_tags')
-      .insert({ client_id: clientId, tag_id: tagId });
-    
+    const { error } = await schemaInsert(teamSchema, 'client_tags', { client_id: clientId, tag_id: tagId });
     if (!error) {
       setClientTags([...clientTags, tagId]);
     }
   }
 
   async function handleRemoveTag(tagId: string) {
-    const { error } = await supabase
-      .from('client_tags')
-      .delete()
-      .eq('client_id', clientId)
-      .eq('tag_id', tagId);
-    
+    const { error } = await schemaDelete(teamSchema, 'client_tags', { client_id: clientId, tag_id: tagId });
     if (!error) {
       setClientTags(clientTags.filter(id => id !== tagId));
     }
@@ -154,16 +147,11 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
 
   async function handleCreateTag() {
     if (!newTagName.trim()) return;
-    
-    const { data, error } = await supabase
-      .from('tags')
-      .insert({ name: newTagName.trim(), category: 'custom', is_auto: false })
-      .select()
-      .single();
-    
-    if (data && !error) {
-      setAllTags([...allTags, data]);
-      await handleAddTag(data.id);
+    const { data, error } = await schemaInsert(teamSchema, 'tags', { name: newTagName.trim(), category: 'custom', is_auto: false }, '*');
+    const tagData = Array.isArray(data) ? data[0] : data;
+    if (tagData && !error) {
+      setAllTags([...allTags, tagData]);
+      await handleAddTag(tagData.id);
       setNewTagName('');
       setShowTagInput(false);
     }
@@ -185,11 +173,7 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
   }
 
   async function handleResetRejectionPoints() {
-    const { error } = await supabase
-      .from('clients')
-      .update({ rejection_points: 0 })
-      .eq('id', clientId);
-    
+    const { error } = await schemaUpdate(teamSchema, 'clients', { rejection_points: 0 }, { id: clientId });
     if (!error) {
       setFormData({ ...formData, rejection_points: 0 });
     }
@@ -202,24 +186,21 @@ export default function ClientEditModal({ clientId, isOpen, onClose, onSave }: C
     setError(null);
 
     try {
-      const { error: updateError } = await supabase
-        .from('clients')
-        .update({
-          full_name: formData.full_name,
-          phone: formData.phone,
-          email: formData.email || null,
-          client_type: formData.client_type,
-          telegram_username: formData.telegram_username || null,
-          whatsapp_phone: formData.whatsapp_phone || null,
-          notes: formData.notes || null,
-          city_id: formData.city_id || null,
-          source_id: formData.source_id || null,
-          manager_id: formData.manager_id || null,
-          preferred_price_range: formData.preferred_price_range || null,
-        })
-        .eq('id', client.id);
+      const { error: updateError } = await schemaUpdate(teamSchema, 'clients', {
+        full_name: formData.full_name,
+        phone: formData.phone,
+        email: formData.email || null,
+        client_type: formData.client_type,
+        telegram_username: formData.telegram_username || null,
+        whatsapp_phone: formData.whatsapp_phone || null,
+        notes: formData.notes || null,
+        city_id: formData.city_id || null,
+        source_id: formData.source_id || null,
+        manager_id: formData.manager_id || null,
+        preferred_price_range: formData.preferred_price_range || null,
+      }, { id: client.id });
 
-      if (updateError) throw updateError;
+      if (updateError) throw new Error(updateError);
 
       onSave?.();
       onClose();

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { schemaInsert } from '@/lib/schema-api';
 
 interface Show {
   id: string;
@@ -17,6 +18,8 @@ interface City {
 
 export default function NewEventPage() {
   const router = useRouter();
+  const supabase = useSchemaClient();
+  const { teamSchema } = useTeam();
   const [loading, setLoading] = useState(false);
   const [shows, setShows] = useState<Show[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -51,31 +54,28 @@ export default function NewEventPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('events')
-      .insert({
-        show_id: form.show_id,
-        city_id: form.city_id,
-        event_date: form.event_date,
-        event_time: form.event_time || null,
-        venue_name: form.venue_name || null,
-        venue_address: form.venue_address || null,
-        total_tickets: form.total_tickets ? parseInt(form.total_tickets) : null,
-        min_price: form.min_price ? parseFloat(form.min_price) : null,
-        max_price: form.max_price ? parseFloat(form.max_price) : null,
-        status: form.status,
-        sold_tickets: 0,
-      })
-      .select()
-      .single();
+    const { data, error } = await schemaInsert(teamSchema, 'events', {
+      show_id: form.show_id,
+      city_id: form.city_id,
+      event_date: form.event_date,
+      event_time: form.event_time || null,
+      venue_name: form.venue_name || null,
+      venue_address: form.venue_address || null,
+      total_tickets: form.total_tickets ? parseInt(form.total_tickets) : null,
+      min_price: form.min_price ? parseFloat(form.min_price) : null,
+      max_price: form.max_price ? parseFloat(form.max_price) : null,
+      status: form.status,
+      sold_tickets: 0,
+    }, '*');
 
     if (error) {
-      alert('Ошибка: ' + error.message);
+      alert('Ошибка: ' + error);
       setLoading(false);
       return;
     }
 
-    router.push(`/events/${data.id}`);
+    const eventId = Array.isArray(data) ? data[0]?.id : data?.id;
+    if (eventId) router.push(`/events/${eventId}`);
   }
 
   return (

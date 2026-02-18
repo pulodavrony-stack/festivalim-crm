@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { schemaInsert } from '@/lib/schema-api';
 
 interface City {
   id: string;
@@ -18,7 +19,7 @@ interface Source {
 export default function NewClientPage() {
   const router = useRouter();
   const supabase = useSchemaClient();
-  const { isLoading: teamLoading } = useTeam();
+  const { isLoading: teamLoading, teamSchema } = useTeam();
   const [loading, setLoading] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -54,35 +55,33 @@ export default function NewClientPage() {
 
     const phoneNormalized = form.phone.replace(/[^\d]/g, '');
 
-    const { data, error } = await supabase
-      .from('clients')
-      .insert({
-        full_name: form.full_name,
-        phone: form.phone,
-        phone_normalized: phoneNormalized || null,
-        email: form.email || null,
-        city_id: form.city_id || null,
-        source_id: form.source_id || null,
-        client_type: form.client_type,
-        notes: form.notes || null,
-        status: 'new',
-      })
-      .select()
-      .single();
+    const { data, error } = await schemaInsert(teamSchema, 'clients', {
+      full_name: form.full_name,
+      phone: form.phone,
+      phone_normalized: phoneNormalized || null,
+      email: form.email || null,
+      city_id: form.city_id || null,
+      source_id: form.source_id || null,
+      client_type: form.client_type,
+      notes: form.notes || null,
+      status: 'new',
+    }, '*');
 
     if (error) {
-      alert('Ошибка: ' + error.message);
+      alert('Ошибка: ' + error);
       setLoading(false);
       return;
     }
 
-    await supabase.from('activities').insert({
-      client_id: data.id,
-      activity_type: 'client_created',
-      content: 'Контакт создан вручную',
-    });
-
-    router.push(`/clients/${data.id}`);
+    const clientId = Array.isArray(data) ? data[0]?.id : data?.id;
+    if (clientId) {
+      await schemaInsert(teamSchema, 'activities', {
+        client_id: clientId,
+        activity_type: 'client_created',
+        content: 'Контакт создан вручную',
+      });
+      router.push(`/clients/${clientId}`);
+    }
   }
 
   return (

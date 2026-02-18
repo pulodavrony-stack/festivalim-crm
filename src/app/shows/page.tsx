@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { schemaInsert, schemaUpdate } from '@/lib/schema-api';
 
 interface Show {
   id: string;
@@ -60,17 +61,14 @@ export default function ShowsPage() {
     e.preventDefault();
 
     if (editingShow) {
-      await supabase
-        .from('shows')
-        .update({
-          title: form.title,
-          description: form.description || null,
-          duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
-          age_restriction: form.age_restriction || null,
-        })
-        .eq('id', editingShow.id);
+      await schemaUpdate(teamSchema, 'shows', {
+        title: form.title,
+        description: form.description || null,
+        duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
+        age_restriction: form.age_restriction || null,
+      }, { id: editingShow.id });
     } else {
-      await supabase.from('shows').insert({
+      await schemaInsert(teamSchema, 'shows', {
         title: form.title,
         description: form.description || null,
         duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
@@ -97,10 +95,7 @@ export default function ShowsPage() {
   }
 
   async function toggleActive(show: Show) {
-    await supabase
-      .from('shows')
-      .update({ is_active: !show.is_active })
-      .eq('id', show.id);
+    await schemaUpdate(teamSchema, 'shows', { is_active: !show.is_active }, { id: show.id });
     loadShows();
   }
 

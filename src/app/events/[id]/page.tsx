@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
+import { schemaUpdate } from '@/lib/schema-api';
 
 interface Event {
   id: string;
@@ -56,6 +57,8 @@ const statusOptions = [
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const supabase = useSchemaClient();
+  const { teamSchema } = useTeam();
   const [event, setEvent] = useState<Event | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,27 +102,19 @@ export default function EventDetailPage() {
   }, [loadEvent, loadDeals]);
 
   async function updateStatus(newStatus: string) {
-    await supabase
-      .from('events')
-      .update({ status: newStatus })
-      .eq('id', params.id);
-    
+    await schemaUpdate(teamSchema, 'events', { status: newStatus }, { id: params.id as string });
     loadEvent();
   }
 
   async function saveChanges() {
-    await supabase
-      .from('events')
-      .update({
-        venue_name: form.venue_name,
-        venue_address: form.venue_address,
-        event_time: form.event_time,
-        total_tickets: form.total_tickets,
-        min_price: form.min_price,
-        max_price: form.max_price,
-      })
-      .eq('id', params.id);
-    
+    await schemaUpdate(teamSchema, 'events', {
+      venue_name: form.venue_name,
+      venue_address: form.venue_address,
+      event_time: form.event_time,
+      total_tickets: form.total_tickets,
+      min_price: form.min_price,
+      max_price: form.max_price,
+    }, { id: params.id as string });
     setEditing(false);
     loadEvent();
   }

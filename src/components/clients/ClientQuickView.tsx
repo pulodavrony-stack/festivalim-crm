@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useSchemaClient } from '@/components/providers/TeamProvider';
+import { useSchemaClient, useTeam } from '@/components/providers/TeamProvider';
 import ClickToCall from '@/components/phone/ClickToCall';
 import VoiceInput from '@/components/ui/VoiceInput';
 import Tooltip from '@/components/ui/Tooltip';
+import { schemaInsert, schemaUpdate, schemaDelete } from '@/lib/schema-api';
 import ClientEditModal from './ClientEditModal';
 import QuickAddContact from './QuickAddContact';
 
@@ -112,6 +113,7 @@ const clientTypeLabels = {
 
 export default function ClientQuickView({ clientId, isOpen, onClose, position = 'right', onOpenMessenger }: ClientQuickViewProps) {
   const supabase = useSchemaClient();
+  const { teamSchema } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -188,10 +190,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   }
 
   async function addPitch(eventId: string) {
-    const { error } = await supabase
-      .from('client_pitches')
-      .insert({ client_id: clientId, event_id: eventId });
-    
+    const { error } = await schemaInsert(teamSchema, 'client_pitches', { client_id: clientId, event_id: eventId });
     if (!error) {
       loadClient();
       setShowPitchSelector(false);
@@ -199,11 +198,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   }
 
   async function removePitch(pitchId: string) {
-    const { error } = await supabase
-      .from('client_pitches')
-      .delete()
-      .eq('id', pitchId);
-    
+    const { error } = await schemaDelete(teamSchema, 'client_pitches', { id: pitchId });
     if (!error) {
       loadClient();
     }
@@ -221,16 +216,14 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
     remindDate.setDate(remindDate.getDate() - parseInt(newReminder.days_before));
     remindDate.setHours(10, 0, 0, 0); // Set to 10:00 AM
     
-    const { error } = await supabase
-      .from('reminders')
-      .insert({
-        client_id: clientId,
-        event_id: newReminder.event_id,
-        remind_at: remindDate.toISOString(),
-        channel: newReminder.channel,
-        status: 'pending',
-      });
-    
+    const { error } = await schemaInsert(teamSchema, 'reminders', {
+      client_id: clientId,
+      event_id: newReminder.event_id,
+      remind_at: remindDate.toISOString(),
+      channel: newReminder.channel,
+      status: 'pending',
+    });
+
     if (!error) {
       loadClient();
       setShowReminderForm(false);
@@ -239,11 +232,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   }
 
   async function cancelReminder(reminderId: string) {
-    const { error } = await supabase
-      .from('reminders')
-      .update({ status: 'cancelled' })
-      .eq('id', reminderId);
-    
+    const { error } = await schemaUpdate(teamSchema, 'reminders', { status: 'cancelled' }, { id: reminderId });
     if (!error) {
       loadClient();
     }
@@ -252,7 +241,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   async function addNote() {
     if (!newNote.trim() || !client) return;
 
-    await supabase.from('activities').insert({
+    await schemaInsert(teamSchema, 'activities', {
       client_id: client.id,
       activity_type: 'note',
       content: newNote,
