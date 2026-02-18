@@ -319,80 +319,66 @@ export default function WebRTCPhone({
     };
   }, [isRegistered]);
 
-  const makeCall = useCallback((number: string) => {
-    if (!softphoneRef.current || !isRegistered) {
-      toast.error('Телефон не подключен');
-      return;
-    }
+  function callViaAPI(cleanNumber: string) {
+    console.log('[Phone] Calling via API:', cleanNumber);
+    toast.info('Соединяем через АТС...');
+    fetch('/api/calls/initiate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientPhone: cleanNumber }),
+    }).then(r => r.json()).then(result => {
+      if (!result.success) {
+        setCallStatus('idle');
+        toast.error(`Ошибка: ${result.error}`);
+      } else {
+        toast.success('Звонок инициирован. Ожидайте соединения.');
+        setTimeout(() => setCallStatus('idle'), 5000);
+      }
+    }).catch(err => {
+      setCallStatus('idle');
+      toast.error('Ошибка сети');
+    });
+  }
 
-    // Убираем всё кроме цифр
-    let cleanNumber = number.replace(/\D/g, '');
-    console.log('[Phone] Raw number:', number, '-> Clean:', cleanNumber, 'Length:', cleanNumber.length);
-    
+  function normalizePhone(number: string): string {
+    let clean = number.replace(/\D/g, '');
+    if (clean.length === 12 && clean.startsWith('78')) {
+      clean = clean.substring(1);
+    }
+    if (clean.length === 11 && clean.startsWith('7')) {
+      clean = '8' + clean.substring(1);
+    }
+    if (clean.length === 10) {
+      clean = '8' + clean;
+    }
+    return clean;
+  }
+
+  const makeCall = useCallback((number: string) => {
+    let cleanNumber = normalizePhone(number);
+    console.log('[Phone] Calling:', cleanNumber);
+
     if (cleanNumber.length < 10) {
       toast.error('Некорректный номер');
       return;
     }
-    
-    // Нормализация номера для UIS
-    // UIS требует формат с 8 в начале (как при обычном наборе с телефона)
-    
-    // Если 12 цифр и начинается с 78 или 87 — убираем лишнее
-    if (cleanNumber.length === 12 && cleanNumber.startsWith('78')) {
-      cleanNumber = cleanNumber.substring(1); // убираем 7, оставляем 8...
-      console.log('[Phone] Removed leading 7, now:', cleanNumber);
-    }
-    
-    // Если 11 цифр и начинается с 7 — заменяем 7 на 8 (формат UIS)
-    if (cleanNumber.length === 11 && cleanNumber.startsWith('7')) {
-      cleanNumber = '8' + cleanNumber.substring(1);
-      console.log('[Phone] Replaced 7 with 8 for UIS format, now:', cleanNumber);
-    }
-    
-    // Если 10 цифр — добавляем 8 в начало
-    if (cleanNumber.length === 10) {
-      cleanNumber = '8' + cleanNumber;
-      console.log('[Phone] Added 8 prefix, now:', cleanNumber);
-    }
-    
-    // Если 11 цифр и начинается с 8 — оставляем как есть
-    if (cleanNumber.length === 11 && cleanNumber.startsWith('8')) {
-      console.log('[Phone] Already in 8xxx format:', cleanNumber);
-    }
 
-    // Пробуем разные форматы для UIS Softphone
-    // UIS может требовать формат с + или без
-    const dialNumber = cleanNumber; // Пока без +, можно попробовать '+' + cleanNumber
-    
-    console.log('[Phone] Final number to call:', dialNumber);
     setCallStatus('connecting');
     setPhoneNumber(cleanNumber);
 
+    // If softphone not registered, use API directly
+    if (!softphoneRef.current || !isRegistered || softphoneRef.current._isJsSIP) {
+      callViaAPI(cleanNumber);
+      return;
+    }
+
+    // Try softphone first, fallback to API on error
     try {
-      if (softphoneRef.current._isJsSIP) {
-        // JsSIP fallback — use Call API
-        fetch('/api/calls/initiate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientPhone: cleanNumber }),
-        }).then(r => r.json()).then(result => {
-          if (!result.success) {
-            setCallStatus('idle');
-            toast.error(`Ошибка: ${result.error}`);
-          } else {
-            toast.info('Соединяем...');
-          }
-        });
-      } else {
-        // UIS Softphone — прямой звонок!
-        // Пробуем формат как при обычном наборе: без +
-        console.log('[Softphone] Dialing:', dialNumber);
-        softphoneRef.current.call(dialNumber);
-      }
+      console.log('[Softphone] Dialing:', cleanNumber);
+      softphoneRef.current.call(cleanNumber);
     } catch (err: any) {
-      console.error('[Phone] Call error:', err);
-      setCallStatus('idle');
-      toast.error(`Ошибка: ${err.message}`);
+      console.error('[Phone] Softphone call failed:', err.message, '- falling back to API');
+      callViaAPI(cleanNumber);
     }
   }, [isRegistered, toast]);
 
