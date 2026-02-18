@@ -9,6 +9,7 @@ import Tooltip from '@/components/ui/Tooltip';
 import { schemaInsert, schemaUpdate, schemaDelete } from '@/lib/schema-api';
 import ClientEditModal from './ClientEditModal';
 import QuickAddContact from './QuickAddContact';
+import ComposeEmailModal from '@/components/email/ComposeEmailModal';
 
 interface Client {
   id: string;
@@ -128,6 +129,7 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [newReminder, setNewReminder] = useState({ event_id: '', days_before: '3', channel: 'whatsapp' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && clientId) {
@@ -334,6 +336,20 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
                         className="w-full bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
                       >
                         💜 MAX
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={client.email ? "Написать email" : "Нет email адреса"} position="bottom" className="flex-1">
+                      <button
+                        onClick={() => {
+                          if (client.email) {
+                            setShowEmailModal(true);
+                          } else {
+                            alert('У контакта нет email. Добавьте email через "Редактировать".');
+                          }
+                        }}
+                        className="w-full bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition-colors"
+                      >
+                        ✉️ Email
                       </button>
                     </Tooltip>
                   </div>
@@ -732,6 +748,18 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
       parentClientId={clientId}
       parentName={client?.full_name}
     />
+
+    {/* Email Compose Modal */}
+    {client?.email && (
+      <ComposeEmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        toEmail={client.email}
+        clientName={client.full_name}
+        clientId={clientId}
+        teamSchema={teamSchema}
+      />
+    )}
     </>
   );
 }

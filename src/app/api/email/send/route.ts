@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, getSenderByTeam } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { to, subject, text, html } = body;
+    const { to, subject, text, html, schema } = body;
 
     if (!to || !subject) {
       return NextResponse.json(
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await sendEmail({ to, subject, text, html });
+    const result = await sendEmail({ to, subject, text, html, schema });
 
     return NextResponse.json({
       success: true,
@@ -26,4 +26,14 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  const schema = request.nextUrl.searchParams.get('schema') || undefined;
+  const sender = getSenderByTeam(schema);
+  return NextResponse.json({
+    senderEmail: sender.email,
+    senderName: sender.name,
+    configured: !!sender.email,
+  });
 }

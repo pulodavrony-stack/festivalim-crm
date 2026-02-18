@@ -5,14 +5,46 @@
 
 const UNISENDER_API_URL = 'https://api.unisender.com/ru/api';
 
+interface SenderConfig {
+  email: string;
+  name: string;
+}
+
+const TEAM_SENDERS: Record<string, SenderConfig> = {
+  atlant: {
+    email: process.env.UNISENDER_SENDER_ATLANT_EMAIL || process.env.UNISENDER_SENDER_EMAIL || '',
+    name: process.env.UNISENDER_SENDER_ATLANT_NAME || 'Театральный Фестиваль',
+  },
+  kstati: {
+    email: process.env.UNISENDER_SENDER_KSTATI_EMAIL || process.env.UNISENDER_SENDER_EMAIL || '',
+    name: process.env.UNISENDER_SENDER_KSTATI_NAME || 'Кстати театр',
+  },
+  etazhi: {
+    email: process.env.UNISENDER_SENDER_EMAIL || '',
+    name: process.env.UNISENDER_SENDER_NAME || 'Этажи',
+  },
+};
+
+export function getSenderByTeam(schema?: string): SenderConfig {
+  if (schema && TEAM_SENDERS[schema]) {
+    return TEAM_SENDERS[schema];
+  }
+  return {
+    email: process.env.UNISENDER_SENDER_EMAIL || '',
+    name: process.env.UNISENDER_SENDER_NAME || 'Фестивалим',
+  };
+}
+
 export interface SendEmailOptions {
   to: string | string[];
   subject: string;
   text?: string;
   html?: string;
   from?: string;
+  fromName?: string;
   replyTo?: string;
-  listId?: string; // Unisender list ID for tracking
+  listId?: string;
+  schema?: string;
 }
 
 export interface UnisenderResponse {
@@ -35,17 +67,16 @@ export async function sendEmail(options: SendEmailOptions): Promise<UnisenderRes
     throw new Error('UNISENDER_API_KEY не настроен. Добавьте его в .env');
   }
 
-  const senderName = process.env.UNISENDER_SENDER_NAME || 'Фестивалим';
-  const senderEmail = options.from || process.env.UNISENDER_SENDER_EMAIL;
+  const teamSender = getSenderByTeam(options.schema);
+  const senderEmail = options.from || teamSender.email;
+  const senderName = options.fromName || teamSender.name;
   
   if (!senderEmail) {
-    throw new Error('UNISENDER_SENDER_EMAIL не настроен. Добавьте его в .env');
+    throw new Error('Email отправителя не настроен. Проверьте UNISENDER_SENDER_EMAIL в .env');
   }
 
-  // Prepare recipients
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
-  // Build form data for API request
   const formData = new URLSearchParams();
   formData.append('api_key', apiKey);
   formData.append('email', recipients.join(','));
@@ -56,7 +87,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<UnisenderRes
   if (options.html) {
     formData.append('body', options.html);
   } else if (options.text) {
-    formData.append('body', `<pre>${options.text}</pre>`);
+    formData.append('body', options.text.replace(/\n/g, '<br/>'));
   }
 
   if (options.replyTo) {

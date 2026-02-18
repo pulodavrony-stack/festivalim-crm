@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { schemaInsert } from '@/lib/schema-api';
 
 interface ComposeEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
   toEmail: string;
   clientName?: string;
+  clientId?: string;
+  teamSchema?: string;
 }
 
 export default function ComposeEmailModal({
@@ -14,12 +17,28 @@ export default function ComposeEmailModal({
   onClose,
   toEmail,
   clientName,
+  clientId,
+  teamSchema,
 }: ComposeEmailModalProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [senderInfo, setSenderInfo] = useState({ email: '', name: '' });
+
+  useEffect(() => {
+    if (isOpen && teamSchema) {
+      fetch(`/api/email/send?schema=${teamSchema}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.senderEmail) {
+            setSenderInfo({ email: data.senderEmail, name: data.senderName });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, teamSchema]);
 
   async function handleSend() {
     if (!subject.trim() || !body.trim()) return;
@@ -34,11 +53,20 @@ export default function ComposeEmailModal({
           to: toEmail,
           subject,
           text: body,
+          schema: teamSchema,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (clientId && teamSchema) {
+        await schemaInsert(teamSchema, 'activities', {
+          client_id: clientId,
+          activity_type: 'message_outbound',
+          content: `Email: "${subject}"`,
+        });
+      }
 
       setSent(true);
       setTimeout(() => {
@@ -57,8 +85,8 @@ export default function ComposeEmailModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[80]">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-blue-500 to-indigo-600 rounded-t-2xl">
           <div>
@@ -82,6 +110,16 @@ export default function ComposeEmailModal({
           <>
             {/* Form */}
             <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+              {senderInfo.email && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">От</label>
+                  <div className="px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+                    <span>✉️</span>
+                    <span>{senderInfo.name} &lt;{senderInfo.email}&gt;</span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Кому</label>
                 <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-700">{toEmail}</div>
@@ -95,6 +133,7 @@ export default function ComposeEmailModal({
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Тема письма..."
                   className="w-full px-4 py-2.5 border rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                  autoFocus
                 />
               </div>
 
@@ -119,7 +158,10 @@ export default function ComposeEmailModal({
             {/* Footer */}
             <div className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                Письмо будет отправлено с корпоративной почты
+                {senderInfo.email
+                  ? `Отправка с ${senderInfo.email}`
+                  : 'Письмо будет отправлено с корпоративной почты'
+                }
               </p>
               <div className="flex gap-3">
                 <button

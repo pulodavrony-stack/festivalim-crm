@@ -1026,6 +1026,8 @@ function ClientPage() {
         onClose={() => setShowEmailCompose(false)}
         toEmail={emailTo}
         clientName={client.full_name}
+        clientId={client.id}
+        teamSchema={teamSchema}
       />
     </div>
   );

@@ -15,15 +15,7 @@ function createSchemaClient(schema: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      schema,
-      pipeline_id,
-      stage_id,
-      city_id,
-      subject,
-      body_template,
-      is_html,
-    } = body;
+    const { schema, subject, body_template, is_html, client_ids } = body;
 
     if (!schema || !subject || !body_template) {
       return NextResponse.json(
@@ -34,41 +26,29 @@ export async function POST(request: NextRequest) {
 
     const supabase = createSchemaClient(schema);
 
-    // Build query: get deals with clients that have email
     let query = supabase
-      .from('deals')
-      .select('id, client:clients(id, full_name, email, phone, city_id)')
-      .eq('status', 'active');
+      .from('clients')
+      .select('id, full_name, email, phone')
+      .not('email', 'is', null)
+      .neq('email', '');
 
-    if (pipeline_id) query = query.eq('pipeline_id', pipeline_id);
-    if (stage_id) query = query.eq('stage_id', stage_id);
-
-    const { data: deals, error: dealsError } = await query;
-
-    if (dealsError) {
-      return NextResponse.json({ error: dealsError.message }, { status: 500 });
+    if (client_ids && client_ids.length > 0) {
+      query = query.in('id', client_ids);
     }
 
-    // Extract unique clients with email
-    const clientMap = new Map<string, any>();
-    for (const deal of deals || []) {
-      const client = deal.client as any;
-      if (!client || !client.email) continue;
-      if (city_id && client.city_id !== city_id) continue;
-      if (!clientMap.has(client.id)) {
-        clientMap.set(client.id, client);
-      }
+    const { data: clients, error: clientsError } = await query;
+
+    if (clientsError) {
+      return NextResponse.json({ error: clientsError.message }, { status: 500 });
     }
 
-    const clients = Array.from(clientMap.values());
-
-    if (clients.length === 0) {
+    if (!clients || clients.length === 0) {
       return NextResponse.json({
         success: true,
         sent: 0,
-        skipped: 0,
         errors: 0,
-        message: 'Нет клиентов с email в выбранном сегменте',
+        total_clients: 0,
+        message: 'Нет контактов с email',
       });
     }
 
@@ -78,14 +58,11 @@ export async function POST(request: NextRequest) {
 
     for (const client of clients) {
       try {
-        // Extract organization name from notes (first line after emoji)
-        const orgName = client.full_name || '';
-
         const vars: Record<string, string> = {
           name: client.full_name || '',
           email: client.email || '',
           phone: client.phone || '',
-          organization: orgName,
+          organization: client.full_name || '',
         };
 
         const personalizedBody = replaceTemplateVars(body_template, vars);
@@ -98,7 +75,6 @@ export async function POST(request: NextRequest) {
           ...(is_html ? { html: personalizedBody } : { text: personalizedBody }),
         });
 
-        // Log activity
         await supabase.from('activities').insert({
           client_id: client.id,
           activity_type: 'message_outbound',
@@ -108,7 +84,6 @@ export async function POST(request: NextRequest) {
         results.push({ email: client.email, status: 'sent' });
         sent++;
 
-        // Small delay between emails to avoid rate limiting
         await new Promise((r) => setTimeout(r, 500));
       } catch (err: any) {
         results.push({ email: client.email, status: 'error', error: err.message });
@@ -124,7 +99,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error: any) {
-    console.error('Bulk email error:', error);
+    console.error('Bulk direct email error:', error);
     return NextResponse.json(
       { error: error.message || 'Ошибка рассылки' },
       { status: 500 }

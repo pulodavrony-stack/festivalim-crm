@@ -40,6 +40,7 @@ export default function EmailPage() {
   const [cities, setCities] = useState<City[]>([]);
   const [clients, setClients] = useState<ClientPreview[]>([]);
 
+  const [mode, setMode] = useState<'pipeline' | 'all'>('pipeline');
   const [selectedPipeline, setSelectedPipeline] = useState('');
   const [selectedStage, setSelectedStage] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
@@ -52,9 +53,18 @@ export default function EmailPage() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [step, setStep] = useState<'compose' | 'preview' | 'result'>('compose');
+  const [senderInfo, setSenderInfo] = useState({ email: '', name: '' });
 
   useEffect(() => {
-    if (!teamLoading) loadData();
+    if (!teamLoading) {
+      loadData();
+      fetch(`/api/email/send?schema=${teamSchema}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.senderEmail) setSenderInfo({ email: data.senderEmail, name: data.senderName });
+        })
+        .catch(() => {});
+    }
   }, [teamLoading]);
 
   useEffect(() => {
@@ -64,10 +74,12 @@ export default function EmailPage() {
   }, [selectedPipeline]);
 
   useEffect(() => {
-    if (selectedPipeline) {
+    if (mode === 'pipeline' && selectedPipeline) {
       loadPreview();
+    } else if (mode === 'all') {
+      loadAllContacts();
     }
-  }, [selectedPipeline, selectedStage, selectedCity]);
+  }, [selectedPipeline, selectedStage, selectedCity, mode]);
 
   async function loadData() {
     const [pipelinesRes, citiesRes] = await Promise.all([
@@ -85,6 +97,21 @@ export default function EmailPage() {
       .eq('pipeline_id', selectedPipeline)
       .order('sort_order');
     if (data) setStages(data);
+  }
+
+  async function loadAllContacts() {
+    setLoading(true);
+    let query = supabase
+      .from('clients')
+      .select('id, full_name, email, phone, city_id')
+      .not('email', 'is', null)
+      .neq('email', '');
+
+    if (selectedCity) query = query.eq('city_id', selectedCity);
+
+    const { data } = await query.order('full_name');
+    if (data) setClients(data);
+    setLoading(false);
   }
 
   async function loadPreview() {
@@ -118,18 +145,29 @@ export default function EmailPage() {
     setResult(null);
 
     try {
-      const res = await fetch('/api/email/bulk', {
+      const endpoint = mode === 'all' ? '/api/email/bulk-direct' : '/api/email/bulk';
+      const payload = mode === 'all'
+        ? {
+            schema: teamSchema,
+            subject,
+            body_template: bodyTemplate,
+            is_html: isHtml,
+            client_ids: clients.map(c => c.id),
+          }
+        : {
+            schema: teamSchema,
+            pipeline_id: selectedPipeline || undefined,
+            stage_id: selectedStage || undefined,
+            city_id: selectedCity || undefined,
+            subject,
+            body_template: bodyTemplate,
+            is_html: isHtml,
+          };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          schema: teamSchema,
-          pipeline_id: selectedPipeline || undefined,
-          stage_id: selectedStage || undefined,
-          city_id: selectedCity || undefined,
-          subject,
-          body_template: bodyTemplate,
-          is_html: isHtml,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -164,40 +202,71 @@ export default function EmailPage() {
           <div className="grid grid-cols-3 gap-6">
             {/* Left: Settings */}
             <div className="col-span-2 space-y-6">
+              {/* Sender Info */}
+              {senderInfo.email && (
+                <div className="bg-blue-50 rounded-xl p-4 flex items-center gap-3">
+                  <span className="text-2xl">✉️</span>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Отправитель: {senderInfo.name}</p>
+                    <p className="text-xs text-blue-700">{senderInfo.email}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Segment */}
               <div className="bg-white rounded-xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">1. Выберите сегмент</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">1. Выберите получателей</h2>
+
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => { setMode('pipeline'); setClients([]); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'pipeline' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    По воронке
+                  </button>
+                  <button
+                    onClick={() => { setMode('all'); setSelectedPipeline(''); setSelectedStage(''); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'all' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    Все контакты с email
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Воронка</label>
-                    <select
-                      value={selectedPipeline}
-                      onChange={(e) => {
-                        setSelectedPipeline(e.target.value);
-                        setSelectedStage('');
-                      }}
-                      className="w-full px-3 py-2 border rounded-lg text-sm focus:border-blue-500 outline-none"
-                    >
-                      <option value="">Выберите воронку</option>
-                      {pipelines.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Этап</label>
-                    <select
-                      value={selectedStage}
-                      onChange={(e) => setSelectedStage(e.target.value)}
-                      disabled={!selectedPipeline}
-                      className="w-full px-3 py-2 border rounded-lg text-sm focus:border-blue-500 outline-none disabled:bg-gray-100"
-                    >
-                      <option value="">Все этапы</option>
-                      {stages.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {mode === 'pipeline' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Воронка</label>
+                        <select
+                          value={selectedPipeline}
+                          onChange={(e) => {
+                            setSelectedPipeline(e.target.value);
+                            setSelectedStage('');
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg text-sm focus:border-blue-500 outline-none"
+                        >
+                          <option value="">Выберите воронку</option>
+                          {pipelines.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Этап</label>
+                        <select
+                          value={selectedStage}
+                          onChange={(e) => setSelectedStage(e.target.value)}
+                          disabled={!selectedPipeline}
+                          className="w-full px-3 py-2 border rounded-lg text-sm focus:border-blue-500 outline-none disabled:bg-gray-100"
+                        >
+                          <option value="">Все этапы</option>
+                          {stages.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Город</label>
                     <select
@@ -275,7 +344,7 @@ export default function EmailPage() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setStep('preview')}
-                  disabled={!selectedPipeline || !subject.trim() || !bodyTemplate.trim() || clients.length === 0}
+                  disabled={!subject.trim() || !bodyTemplate.trim() || clients.length === 0}
                   className="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-xl font-medium text-sm transition-colors"
                 >
                   Предпросмотр и отправка →
@@ -298,7 +367,7 @@ export default function EmailPage() {
                   </span>
                 </h3>
 
-                {!selectedPipeline ? (
+                {mode === 'pipeline' && !selectedPipeline ? (
                   <p className="text-sm text-gray-400 text-center py-6">
                     Выберите воронку
                   </p>
