@@ -31,6 +31,8 @@ export default function WebRTCPhone({
   const [callerInfo, setCallerInfo] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [employeeName, setEmployeeName] = useState('');
+  const [apiCallSessionId, setApiCallSessionId] = useState<number | null>(null);
+  const [isApiCall, setIsApiCall] = useState(false);
 
   const softphoneRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -322,6 +324,8 @@ export default function WebRTCPhone({
   function callViaAPI(cleanNumber: string) {
     console.log('[Phone] Calling via API:', cleanNumber);
     toast.info('Соединяем через АТС...');
+    setIsApiCall(true);
+    setApiCallSessionId(null);
     fetch('/api/calls/initiate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -329,13 +333,17 @@ export default function WebRTCPhone({
     }).then(r => r.json()).then(result => {
       if (!result.success) {
         setCallStatus('idle');
+        setIsApiCall(false);
         toast.error(`Ошибка: ${result.error}`);
       } else {
+        setCallStatus('in-call');
+        setApiCallSessionId(result.callId || null);
+        startCallTimer();
         toast.success('Звонок инициирован. Ожидайте соединения.');
-        setTimeout(() => setCallStatus('idle'), 5000);
       }
     }).catch(err => {
       setCallStatus('idle');
+      setIsApiCall(false);
       toast.error('Ошибка сети');
     });
   }
@@ -410,17 +418,30 @@ export default function WebRTCPhone({
   }, []);
 
   const hangup = useCallback(() => {
-    if (!softphoneRef.current) return;
-    try {
-      if (softphoneRef.current._isJsSIP && softphoneRef.current._jssipSession) {
-        softphoneRef.current._jssipSession.terminate();
-      } else {
-        softphoneRef.current.terminate();
-      }
-    } catch(e) {}
+    if (isApiCall && apiCallSessionId) {
+      fetch('/api/calls/release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callSessionId: apiCallSessionId }),
+      }).then(r => r.json()).then(result => {
+        if (result.success) {
+          toast.info('Звонок завершён');
+        }
+      }).catch(() => {});
+    } else if (softphoneRef.current) {
+      try {
+        if (softphoneRef.current._isJsSIP && softphoneRef.current._jssipSession) {
+          softphoneRef.current._jssipSession.terminate();
+        } else {
+          softphoneRef.current.terminate();
+        }
+      } catch(e) {}
+    }
     setCallStatus('idle');
+    setIsApiCall(false);
+    setApiCallSessionId(null);
     stopCallTimer();
-  }, []);
+  }, [isApiCall, apiCallSessionId, toast]);
 
   const toggleMute = useCallback(() => {
     if (!softphoneRef.current) return;
