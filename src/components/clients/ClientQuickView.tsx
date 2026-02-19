@@ -90,6 +90,8 @@ interface ClientQuickViewProps {
   onClose: () => void;
   position?: 'left' | 'right';
   onOpenMessenger?: (phone?: string, telegram?: string) => void;
+  /** Встроенный режим: без своего backdrop и fixed-обёртки, панель занимает 100% родителя */
+  embedded?: boolean;
 }
 
 const activityIcons: Record<string, string> = {
@@ -112,7 +114,7 @@ const clientTypeLabels = {
   kb: { label: 'КБ', color: 'bg-green-100 text-green-700' },
 };
 
-export default function ClientQuickView({ clientId, isOpen, onClose, position = 'right', onOpenMessenger }: ClientQuickViewProps) {
+export default function ClientQuickView({ clientId, isOpen, onClose, position = 'right', onOpenMessenger, embedded = false }: ClientQuickViewProps) {
   const { teamSchema } = useTeam();
   const [client, setClient] = useState<Client | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -250,22 +252,8 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
 
   if (!isOpen) return null;
 
-  return (
-    <>
-    <div className="fixed inset-0 z-[60] overflow-hidden">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Slide-over panel */}
-      <div className={`absolute inset-y-0 ${position === 'left' ? 'left-0 pr-10' : 'right-0 pl-10'} flex max-w-full`}>
-        <div 
-          className="w-screen max-w-md transform transition-transform duration-300 ease-in-out"
-          style={{ transform: isOpen ? 'translateX(0)' : (position === 'left' ? 'translateX(-100%)' : 'translateX(100%)') }}
-        >
-          <div className="flex h-full flex-col bg-white shadow-xl">
+  const panelContent = (
+    <div className="flex h-full flex-col bg-white">
             {/* Header */}
             <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5">
               <div className="flex items-center justify-between">
@@ -720,41 +708,67 @@ export default function ClientQuickView({ clientId, isOpen, onClose, position = 
               )}
             </div>
           </div>
+  );
+
+  const modals = (
+    <>
+      <ClientEditModal
+        clientId={clientId}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={() => {
+          loadClient();
+          setIsEditModalOpen(false);
+        }}
+      />
+      <QuickAddContact
+        isOpen={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        onSuccess={() => loadClient()}
+        parentClientId={clientId}
+        parentName={client?.full_name}
+      />
+      {client?.email && (
+        <ComposeEmailModal
+          isOpen={showEmailModal}
+          onClose={() => setShowEmailModal(false)}
+          toEmail={client.email}
+          clientName={client.full_name}
+          clientId={clientId}
+          teamSchema={teamSchema}
+        />
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        <div className="h-full overflow-hidden">
+          {panelContent}
+        </div>
+        {modals}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] overflow-hidden pointer-events-none">
+        <div
+          className="absolute inset-0 bg-black/40 transition-opacity pointer-events-auto"
+          onClick={onClose}
+        />
+        <div className={`absolute inset-y-0 ${position === 'left' ? 'left-0' : 'right-0'} flex max-w-full pointer-events-auto`}>
+          <div
+            className="w-screen max-w-md transform transition-transform duration-300 ease-in-out"
+            style={{ transform: isOpen ? 'translateX(0)' : (position === 'left' ? 'translateX(-100%)' : 'translateX(100%)') }}
+          >
+            {panelContent}
+          </div>
         </div>
       </div>
-    </div>
-
-    {/* Edit Modal */}
-    <ClientEditModal
-      clientId={clientId}
-      isOpen={isEditModalOpen}
-      onClose={() => setIsEditModalOpen(false)}
-      onSave={() => {
-        loadClient();
-        setIsEditModalOpen(false);
-      }}
-    />
-
-    {/* Quick Add Contacts */}
-    <QuickAddContact
-      isOpen={showQuickAdd}
-      onClose={() => setShowQuickAdd(false)}
-      onSuccess={() => loadClient()}
-      parentClientId={clientId}
-      parentName={client?.full_name}
-    />
-
-    {/* Email Compose Modal */}
-    {client?.email && (
-      <ComposeEmailModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        toEmail={client.email}
-        clientName={client.full_name}
-        clientId={clientId}
-        teamSchema={teamSchema}
-      />
-    )}
+      {modals}
     </>
   );
 }

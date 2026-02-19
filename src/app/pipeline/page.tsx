@@ -584,28 +584,50 @@ function PipelinePage() {
         </div>
       )}
 
-      {/* Side Panels */}
-      <ClientQuickView
-        clientId={quickViewClientId || ''}
-        isOpen={!!quickViewClientId}
-        onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
-        position="left"
-        onOpenMessenger={(phone) => {
-          if (phone) {
-            const cleaned = phone.replace(/[^\d]/g, '');
-            window.open(`https://web.whatsapp.com/send?phone=${cleaned}`, '_blank');
-          }
-        }}
-      />
-      <SalesToolsPanel
-        clientId={quickViewClientId}
-        clientPhone={selectedClientInfo?.phone}
-        clientName={selectedClientInfo?.name}
-        clientOrg={selectedClientInfo?.org}
-        dealTitle={selectedClientInfo?.dealTitle}
-        isOpen={!!quickViewClientId}
-        onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
-      />
+      {/* Unified Client Drawer: карточка + инструменты как единое окно */}
+      {!!quickViewClientId && (
+        <div className="fixed inset-0 z-[60] flex pointer-events-none">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 pointer-events-auto"
+            onClick={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
+          />
+          {/* Панель: карточка клиента (левая) + инструменты (правая) */}
+          <div className="relative flex ml-auto h-full pointer-events-auto shadow-2xl"
+            style={{ width: 'min(100vw, 900px)' }}
+          >
+            {/* Карточка клиента */}
+            <div className="w-[400px] flex-shrink-0 h-full overflow-hidden">
+              <ClientQuickView
+                clientId={quickViewClientId}
+                isOpen={true}
+                onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
+                position="left"
+                embedded={true}
+                onOpenMessenger={(phone) => {
+                  if (phone) {
+                    const cleaned = phone.replace(/[^\d]/g, '');
+                    window.open(`https://web.whatsapp.com/send?phone=${cleaned}`, '_blank');
+                  }
+                }}
+              />
+            </div>
+            {/* Панель инструментов */}
+            <div className="flex-1 h-full overflow-hidden min-w-0">
+              <SalesToolsPanel
+                clientId={quickViewClientId}
+                clientPhone={selectedClientInfo?.phone}
+                clientName={selectedClientInfo?.name}
+                clientOrg={selectedClientInfo?.org}
+                dealTitle={selectedClientInfo?.dealTitle}
+                isOpen={true}
+                embedded={true}
+                onClose={() => { setQuickViewClientId(null); setSelectedClientInfo(null); }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       <CreateDealModal
         isOpen={isCreateDealOpen}
         onClose={() => setIsCreateDealOpen(false)}
