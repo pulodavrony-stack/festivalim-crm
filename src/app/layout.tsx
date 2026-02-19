@@ -7,6 +7,7 @@ import PhoneWidgetWrapper from '@/components/phone/PhoneWidgetWrapper';
 import { ToastProvider } from '@/components/ui/Toast';
 import EmbeddedMessenger from '@/components/messaging/EmbeddedMessenger';
 import { QuickAddButton } from '@/components/clients/QuickAddContact';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
@@ -49,18 +50,26 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <AuthProvider>
-          <TeamProvider>
-            <ToastProvider>
-              <div className="min-h-screen bg-gray-50">
-                {children}
-              </div>
-              <PhoneWidgetWrapper />
-              <EmbeddedMessenger />
-              <QuickAddButton />
-            </ToastProvider>
-          </TeamProvider>
-        </AuthProvider>
+        <ErrorBoundary moduleName="Приложение">
+          <AuthProvider>
+            <TeamProvider>
+              <ToastProvider>
+                <div className="min-h-screen bg-gray-50">
+                  {children}
+                </div>
+                <ErrorBoundary moduleName="Телефония">
+                  <PhoneWidgetWrapper />
+                </ErrorBoundary>
+                <ErrorBoundary moduleName="Мессенджер">
+                  <EmbeddedMessenger />
+                </ErrorBoundary>
+                <ErrorBoundary moduleName="Быстрое добавление">
+                  <QuickAddButton />
+                </ErrorBoundary>
+              </ToastProvider>
+            </TeamProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

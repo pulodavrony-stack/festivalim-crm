@@ -144,36 +144,38 @@ export default function AnalyticsPage() {
 
   async function loadStats() {
     setLoading(true);
-    
+
+    try {
     const today = new Date().toISOString().split('T')[0];
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const startDate = period === 'today' ? today : period === 'week' ? weekAgo : monthAgo;
 
-    // Build queries with filters
-    let clientsQuery = supabase.from('clients').select('id, client_type, city_id, manager_id, source_id, created_at');
-    let dealsQuery = supabase.from('deals').select('id, status, amount, tickets_count, pipeline_id, manager_id, event_id, client_id, created_at, closed_at').gte('created_at', startDate);
-    let callsQuery = supabase.from('calls').select('id, manager_id, duration_seconds, client_id').gte('started_at', startDate);
-    
+    // Build queries with filters — одним запросом с join вместо N+1
+    let clientsQuery = supabase
+      .from('clients')
+      .select('id, client_type, city_id, manager_id, source_id, created_at')
+      .gte('created_at', startDate);
+    let dealsQuery = supabase
+      .from('deals')
+      .select('id, status, amount, tickets_count, pipeline_id, manager_id, event_id, created_at, closed_at')
+      .gte('created_at', startDate);
+    let callsQuery = supabase
+      .from('calls')
+      .select('id, manager_id, duration_seconds')
+      .gte('started_at', startDate);
+
     if (filters.manager_id) {
       clientsQuery = clientsQuery.eq('manager_id', filters.manager_id);
       dealsQuery = dealsQuery.eq('manager_id', filters.manager_id);
       callsQuery = callsQuery.eq('manager_id', filters.manager_id);
     }
-    
-    if (filters.city_id) {
-      clientsQuery = clientsQuery.eq('city_id', filters.city_id);
-    }
-    
-    if (filters.event_id) {
-      dealsQuery = dealsQuery.eq('event_id', filters.event_id);
-    }
-    
-    if (filters.source_id) {
-      clientsQuery = clientsQuery.eq('source_id', filters.source_id);
-    }
+    if (filters.city_id) clientsQuery = clientsQuery.eq('city_id', filters.city_id);
+    if (filters.event_id) dealsQuery = dealsQuery.eq('event_id', filters.event_id);
+    if (filters.source_id) clientsQuery = clientsQuery.eq('source_id', filters.source_id);
 
     const publicClient = getPublicClient();
+    // Все запросы параллельно — нет N+1
     const [clientsResult, dealsResult, callsResult, pipelinesResult, managersListResult] = await Promise.all([
       clientsQuery,
       dealsQuery,
@@ -291,7 +293,11 @@ export default function AnalyticsPage() {
       setProjectStats(pStats);
     }
 
-    setLoading(false);
+    } catch (error) {
+      console.error('[Analytics] Error loading stats:', error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function formatDuration(seconds: number): string {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTeam } from '@/components/providers/TeamProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
+import NotificationBell from '@/components/ui/NotificationBell';
 
 interface NavItem {
   href: string;
@@ -191,6 +192,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* User Info */}
         <div className="absolute bottom-0 left-0 right-0 p-3 border-t bg-gray-50">
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <div className="w-8 h-8 shrink-0 rounded-full bg-red-500 flex items-center justify-center text-white text-sm font-bold">
               {team?.name?.[0] || 'М'}
             </div>
