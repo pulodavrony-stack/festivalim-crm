@@ -23,6 +23,7 @@ const mainNav: NavItem[] = [
   { href: '/events', label: 'События', icon: '📅' },
   { href: '/shows', label: 'Спектакли', icon: '🎭' },
   { href: '/orgotdel', label: 'Орготдел', icon: '🗂️' },
+  { href: '/finances', label: 'Финансы', icon: '💰' },
   { href: '/analytics', label: 'Аналитика', icon: '📈' },
   { href: '/email', label: 'Email рассылки', icon: '✉️' },
 ];
